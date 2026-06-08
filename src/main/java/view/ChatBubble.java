@@ -187,3 +187,4 @@ public class ChatBubble extends JPanel {
 
 
 
+

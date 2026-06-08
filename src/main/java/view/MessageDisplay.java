@@ -7,7 +7,9 @@ import java.awt.*;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.RoundRectangle2D;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 /**
  * 消息显示组件
@@ -59,7 +61,7 @@ public class MessageDisplay extends JPanel {
             return new String[]{""};
         }
 
-        java.util.List<String> lines = new java.util.ArrayList<>();
+        List<String> lines = new ArrayList<>();
 
         // 先按换行符分割
         String[] paragraphs = text.split("\n");

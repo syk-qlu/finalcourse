@@ -45,6 +45,7 @@ public class ChatApplication extends JFrame {
         scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         scrollPane.getVerticalScrollBar().setUnitIncrement(20);
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        SmoothScroll.enable(scrollPane);
 
         // 创建底部输入面板
         JPanel bottomPanel = createBottomPanel();
