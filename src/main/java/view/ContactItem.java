@@ -8,6 +8,10 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.function.Consumer;
 
+
+/**
+ * 联系人列表中的单个联系人项组件
+ */
 public class ContactItem extends JPanel {
     private JLabel headLabel;
     private JLabel nameLabel;
@@ -25,7 +29,7 @@ public class ContactItem extends JPanel {
         initializeUI();
         addMouseListener();
     }
-
+//初始化UI
     private void initializeUI() {
         setLayout(null);
         setPreferredSize(new Dimension(250, 60));

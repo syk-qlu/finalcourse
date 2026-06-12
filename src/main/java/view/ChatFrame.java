@@ -46,6 +46,13 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
     private List<Group> groups;
     private Timer heartbeatTimer;
 
+    // 放大后的窗口尺寸
+    private int frameWidth;
+    private int frameHeight;
+
+    // 左侧面板总宽度（导航栏60 + 列表250）
+    private static final int LEFT_WIDTH = 310;
+
     public ChatFrame(User loginUser) {
         this.currentUser = loginUser;
         this.chatService = new ChatService();
@@ -75,7 +82,7 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
 
         setVisible(true);
     }
-
+//连接服务端
     private void connectToServer() {
         boolean connected = chatClient.connect("localhost", 9999);
         if (connected) {
@@ -88,8 +95,12 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
     }
 
     private void initializeUI() {
+        // 计算放大20%后的窗口尺寸
+        frameWidth = (int) (Constants.WINDOW_WIDTH * 1.2);
+        frameHeight = (int) (Constants.WINDOW_HEIGHT * 1.2);
+
         setTitle("聊天应用 - " + currentUser.getUsername());
-        setSize(Constants.WINDOW_WIDTH, Constants.WINDOW_HEIGHT);
+        setSize(frameWidth, frameHeight);
         setResizable(false);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
@@ -98,11 +109,11 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
         initChatPanel();
 
         JPanel leftAll = new JPanel(null);
-        leftAll.setBounds(0, 0, 310, Constants.WINDOW_HEIGHT);
+        leftAll.setBounds(0, 0, LEFT_WIDTH, frameHeight);
         leftAll.add(navPane);
 
         tabbedPane = new JTabbedPane();
-        tabbedPane.setBounds(60, 0, 250, Constants.WINDOW_HEIGHT);
+        tabbedPane.setBounds(60, 0, LEFT_WIDTH - 60, frameHeight);
 
         JPanel friendPanel = new JPanel(null);
         friendPanel.setLayout(null);
@@ -120,7 +131,7 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
 
         JSplitPane mainSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftAll, chatPanel);
         mainSplit.setDividerSize(0);
-        mainSplit.setDividerLocation(310);
+        mainSplit.setDividerLocation(LEFT_WIDTH);
         mainSplit.setEnabled(false);
 
         setContentPane(mainSplit);
@@ -128,7 +139,7 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
 
     private void initLeftNav() {
         navPane = new JPanel(null);
-        navPane.setBounds(0, 0, 60, Constants.WINDOW_HEIGHT);
+        navPane.setBounds(0, 0, 60, frameHeight);
         navPane.setBackground(new Color(29, 35, 42));
 
         JLabel headLabel = new JLabel(currentUser.getHeadIcon());
@@ -151,12 +162,12 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
 
     private void initChatPanel() {
         chatPanel = new JPanel(null);
-        chatPanel.setBounds(0, 0, Constants.WINDOW_WIDTH - 310, Constants.WINDOW_HEIGHT);
+        chatPanel.setBounds(0, 0, frameWidth - LEFT_WIDTH, frameHeight);
         chatPanel.setBackground(new Color(244, 244, 244));
 
         // 标题栏
         JPanel titlePanel = new JPanel(new BorderLayout());
-        titlePanel.setBounds(0, 0, Constants.WINDOW_WIDTH - 310, 60);
+        titlePanel.setBounds(0, 0, frameWidth - LEFT_WIDTH, 60);
         titlePanel.setBackground(new Color(79, 183, 245));
         titlePanel.setBorder(BorderFactory.createEmptyBorder(0, 15, 0, 15));
 
@@ -172,14 +183,15 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
         titlePanel.add(statusLabel, BorderLayout.EAST);
         chatPanel.add(titlePanel);
 
-        // 消息显示区
+        // 消息显示区（高度自动扩展以填满上方空间）
+        int chatScrollerHeight = frameHeight - 60 - 35 - 120; // 减去顶部标题栏、工具栏、输入区的高度
         messageDisplayPanel = new JPanel();
         messageDisplayPanel.setLayout(new BoxLayout(messageDisplayPanel, BoxLayout.Y_AXIS));
         messageDisplayPanel.setBackground(new Color(248, 248, 248));
         messageDisplayPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         chatScroller = new JScrollPane(messageDisplayPanel);
-        chatScroller.setBounds(0, 60, Constants.WINDOW_WIDTH - 310, 340);
+        chatScroller.setBounds(0, 60, frameWidth - LEFT_WIDTH, chatScrollerHeight);
         chatScroller.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
         chatScroller.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         chatScroller.getVerticalScrollBar().setUnitIncrement(20);
@@ -187,9 +199,9 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
         SmoothScroll.enable(chatScroller);
         chatPanel.add(chatScroller);
 
-        // 工具栏
+        // 工具栏（固定在底部输入区上方）
         JPanel toolBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 5));
-        toolBar.setBounds(0, 400, Constants.WINDOW_WIDTH - 310, 35);
+        toolBar.setBounds(0, frameHeight - 120 - 35, frameWidth - LEFT_WIDTH, 35);
         toolBar.setBackground(new Color(244, 244, 244));
         toolBar.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(200, 200, 200)));
 
@@ -209,7 +221,7 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
 
         chatPanel.add(toolBar);
 
-        // 输入框
+        // 输入框（固定在底部）
         inputArea = new JTextArea(3, 1);
         inputArea.setFont(new Font("微软雅黑", Font.PLAIN, 13));
         inputArea.setLineWrap(true);
@@ -217,14 +229,14 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
         inputArea.setBorder(BorderFactory.createLineBorder(new Color(200, 200, 200)));
 
         JScrollPane inputScroll = new JScrollPane(inputArea);
-        inputScroll.setBounds(0, 435, Constants.WINDOW_WIDTH - 310 - 100, 120);
+        inputScroll.setBounds(0, frameHeight - 120, frameWidth - LEFT_WIDTH - 100, 120);
         inputScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         chatPanel.add(inputScroll);
 
-        // 发送按钮
+        // 发送按钮（固定在底部）
         sendButton = new JButton("发送");
         sendButton.setFont(new Font("微软雅黑", Font.PLAIN, 13));
-        sendButton.setBounds(Constants.WINDOW_WIDTH - 310 - 90, 435, 80, 120);
+        sendButton.setBounds(frameWidth - LEFT_WIDTH - 90, frameHeight - 120, 80, 120);
         sendButton.setBackground(Constants.COLOR_SENDER);
         sendButton.setForeground(Color.WHITE);
         sendButton.setFocusPainted(false);
