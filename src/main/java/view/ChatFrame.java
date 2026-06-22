@@ -116,10 +116,16 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
         tabbedPane.setBounds(60, 0, LEFT_WIDTH - 60, frameHeight);
 
         JPanel friendPanel = new JPanel(null);
+
+        // 计算 tabbedPane 内容面板的可用高度（减去 tab 标签栏高度，约50像素）
+        int tabContentHeight = frameHeight - 50;
+
         friendPanel.setLayout(null);
         contactListPane = new ContactListPane(contacts, this::switchChat, chatService, currentUser.getUserId());
+        contactListPane.setBounds(0, 0, 250, tabContentHeight);  // 关键：赋予尺寸
         friendPanel.add(contactListPane);
         tabbedPane.addTab("好友", friendPanel);
+
 
         JPanel groupPanel = new JPanel(null);
         groupPanel.setLayout(null);
@@ -158,6 +164,29 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
         statusLight.setText("在线");
         statusLight.setHorizontalAlignment(SwingConstants.CENTER);
         navPane.add(statusLight);
+
+        // 添加好友按钮
+        JButton addFriendBtn = new JButton("+ 好友");
+        addFriendBtn.setBounds(5, frameHeight - 110, 50, 30);
+        addFriendBtn.setFont(new Font("微软雅黑", Font.PLAIN, 9));
+        addFriendBtn.setBackground(new Color(79, 183, 245));
+        addFriendBtn.setForeground(Color.WHITE);
+        addFriendBtn.setFocusPainted(false);
+        addFriendBtn.setBorder(BorderFactory.createEmptyBorder());
+        addFriendBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        addFriendBtn.addActionListener(e -> showAddFriendDialog());
+        navPane.add(addFriendBtn);
+        // 加入群聊按钮
+        JButton joinGroupBtn = new JButton("+ 群聊");
+        joinGroupBtn.setBounds(5, frameHeight - 70, 50, 30);
+        joinGroupBtn.setFont(new Font("微软雅黑", Font.PLAIN, 9));
+        joinGroupBtn.setBackground(new Color(100, 200, 100));
+        joinGroupBtn.setForeground(Color.WHITE);
+        joinGroupBtn.setFocusPainted(false);
+        joinGroupBtn.setBorder(BorderFactory.createEmptyBorder());
+        joinGroupBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        joinGroupBtn.addActionListener(e -> showJoinGroupDialog());
+        navPane.add(joinGroupBtn);
     }
 
     private void initChatPanel() {
@@ -248,19 +277,32 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
 
     private void loadData() {
         // 加载好友列表
-        contacts.clear();
-        List<User> friends = chatService.getFriendList(currentUser.getUserId());
-        contacts.addAll(friends);
-        if (contactListPane != null) {
-            contactListPane.updateContacts(contacts);
+        //测试
+        User test = chatService.getUserById(1);
+        System.out.println("test user: " + test);
+        try {
+            contacts.clear();
+            List<User> friends = chatService.getFriendList(currentUser.getUserId());
+            contacts.addAll(friends);
+            if (contactListPane != null) {
+                contactListPane.updateContacts(contacts);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "加载好友列表失败，请检查数据库连接！", "错误", JOptionPane.ERROR_MESSAGE);
         }
 
         // 加载群组列表
-        groups.clear();
-        List<Group> userGroups = chatService.getUserGroups(currentUser.getUserId());
-        groups.addAll(userGroups);
-        if (groupListPane != null) {
-            groupListPane.updateGroups(groups);
+        try {
+            groups.clear();
+            List<Group> userGroups = chatService.getUserGroups(currentUser.getUserId());
+            groups.addAll(userGroups);
+            if (groupListPane != null) {
+                groupListPane.updateGroups(groups);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "加载群聊列表失败，请检查数据库连接！", "错误", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -659,6 +701,70 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
             displayMessages();
         } else if (currentGroup != null) {
             displayGroupMessages();
+        }
+    }
+
+    /**
+     * 添加好友
+     */
+    private void showAddFriendDialog() {
+        String input = JOptionPane.showInputDialog(this, "请输入好友的用户ID：", "添加好友", JOptionPane.QUESTION_MESSAGE);
+        if (input == null || input.trim().isEmpty()) return;
+
+        try {
+            int friendId = Integer.parseInt(input.trim());
+            if (friendId == currentUser.getUserId()) {
+                JOptionPane.showMessageDialog(this, "不能添加自己为好友！");
+                return;
+            }
+            User friend = chatService.getUserById(friendId);
+            if (friend == null) {
+                JOptionPane.showMessageDialog(this, "该用户不存在！");
+                return;
+            }
+            if (chatService.isFriend(currentUser.getUserId(), friendId)) {
+                JOptionPane.showMessageDialog(this, "你们已经是好友了！");
+                return;
+            }
+            boolean success = chatService.sendFriendRequest(currentUser.getUserId(), friendId, "我想加你为好友");
+            if (success) {
+                JOptionPane.showMessageDialog(this, "好友请求已发送！");
+                loadData(); // 刷新列表（其实未接受前列表不变，可选）
+            } else {
+                JOptionPane.showMessageDialog(this, "发送请求失败，请稍后重试！");
+            }
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "请输入有效的数字ID！");
+        }
+    }
+
+    /**
+     * 添加群聊
+     */
+    private void showJoinGroupDialog() {
+        String input = JOptionPane.showInputDialog(this, "请输入群聊ID：", "加入群聊", JOptionPane.QUESTION_MESSAGE);
+        if (input == null || input.trim().isEmpty()) return;
+
+        try {
+            int groupId = Integer.parseInt(input.trim());
+            Group group = chatService.getGroupInfo(groupId);
+            if (group == null) {
+                JOptionPane.showMessageDialog(this, "该群聊不存在！");
+                return;
+            }
+            if (chatService.isGroupMember(groupId, currentUser.getUserId())) {
+                JOptionPane.showMessageDialog(this, "你已经在群中！");
+                return;
+            }
+            boolean success = chatService.addGroupMember(groupId, currentUser.getUserId());
+            if (success) {
+                JOptionPane.showMessageDialog(this, "成功加入群聊：" + group.getGroupName());
+                loadData(); // 刷新群聊列表
+            } else {
+                JOptionPane.showMessageDialog(this, "加入群聊失败，请稍后重试！");
+            }
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "请输入有效的数字ID！");
         }
     }
 

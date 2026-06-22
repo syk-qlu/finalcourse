@@ -18,6 +18,7 @@ public class ContactListPane extends JPanel {
     private ContactItem selectedItem;
     private ChatService chatService;
     private int currentUserId;
+    JScrollPane listScroller = new JScrollPane();
 
     public ContactListPane(List<User> contacts, Consumer<User> onSelectCallback,
                            ChatService chatService, int currentUserId) {
@@ -133,6 +134,16 @@ public class ContactListPane extends JPanel {
         // 调用回调
         if (onSelectCallback != null) {
             onSelectCallback.accept(user);
+        }
+    }
+    @Override
+    public void setBounds(int x, int y, int width, int height) {
+        super.setBounds(x, y, width, height);
+        if (listScroller != null) {
+            listScroller.setBounds(0, 50, width, height - 50);
+        }
+        if (searchField != null) {
+            searchField.setBounds(10, 10, width - 20, 30);
         }
     }
 

@@ -192,6 +192,11 @@ public class ChatService {
         return groupDAO.addGroupMember(groupId, userId, "member");
     }
 
+
+    public boolean addGroupMember(int groupId, int userId, String role) {
+        return groupDAO.addGroupMember(groupId, userId, role);
+    }
+
     /**
      * 删除群成员
      */
