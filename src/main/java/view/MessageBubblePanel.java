@@ -11,103 +11,82 @@ import java.awt.event.MouseEvent;
 import java.util.function.Consumer;
 
 public class MessageBubblePanel extends JPanel {
-    private User sender;
-    private Message message;
-    private boolean isSender;
-    private Consumer<Long> recallCallback;
     private ChatBubble bubble;
+    private JPanel avatarPanel;
+    private Consumer<Long> recallCallback;
+    JPanel bubbleWithTime = new JPanel(new BorderLayout(0, 2));
 
     public MessageBubblePanel(User sender, Message msg, boolean isSender) {
-        this.sender = sender;
-        this.message = msg;
-        this.isSender = isSender;
-        setLayout(new BorderLayout(8, 0));
+        setLayout(new BorderLayout(0, 0));
         setOpaque(false);
 
         if (msg.isDeleted()) {
-            JLabel deletedLabel = new JLabel("该消息已被撤回", SwingConstants.CENTER);
-            deletedLabel.setFont(new Font("微软雅黑", Font.ITALIC, 12));
-            deletedLabel.setForeground(Color.GRAY);
-            add(deletedLabel, BorderLayout.CENTER);
+            JLabel del = new JLabel("该消息已被撤回", SwingConstants.CENTER);
+            del.setFont(new Font("微软雅黑", Font.ITALIC, 12));
+            del.setForeground(Color.GRAY);
+            add(del, BorderLayout.CENTER);
             return;
         }
 
-        // ========== 头像 + 名称面板 ==========
-        JPanel avatarPanel = new JPanel();
+        // 头像 + 名称
+        avatarPanel = new JPanel();
         avatarPanel.setLayout(new BoxLayout(avatarPanel, BoxLayout.Y_AXIS));
         avatarPanel.setOpaque(false);
+        avatarPanel.setPreferredSize(new Dimension(50, 10));
+        avatarPanel.setMinimumSize(new Dimension(50, 10));
+        avatarPanel.setMaximumSize(new Dimension(50, Integer.MAX_VALUE));
+        JLabel name = new JLabel(sender.getName() != null ? sender.getName() : sender.getUsername());
+        name.setFont(new Font("微软雅黑", Font.PLAIN, 11));
+        name.setForeground(new Color(120,120,120));
+        name.setAlignmentX(Component.CENTER_ALIGNMENT);
+        JLabel avatar = new JLabel(new ImageIcon(sender.getHeadIcon().getImage().getScaledInstance(36,36,Image.SCALE_SMOOTH)));
+        avatar.setAlignmentX(Component.CENTER_ALIGNMENT);
+        avatarPanel.add(name);
+        avatarPanel.add(Box.createVerticalStrut(2));
+        avatarPanel.add(avatar);
 
-        // 名称标签
-        JLabel nameLabel = new JLabel(sender.getName() != null ? sender.getName() : sender.getUsername());
-        nameLabel.setFont(new Font("微软雅黑", Font.PLAIN, 11));
-        nameLabel.setForeground(new Color(120, 120, 120));
-        nameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        // 头像
-        JLabel avatarLabel = new JLabel(new ImageIcon(
-                sender.getHeadIcon().getImage().getScaledInstance(36, 36, Image.SCALE_SMOOTH)
-        ));
-        avatarLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        avatarPanel.add(nameLabel);
-        avatarPanel.add(Box.createVerticalStrut(3));
-        avatarPanel.add(avatarLabel);
-
-        // ========== 气泡 + 时间 ==========
+        // 气泡
         bubble = new ChatBubble(msg.getContent(), isSender);
-        bubble.setMaxWidth(300);
-        bubble.setShowTail(false);     // 纯圆角矩形
-        bubble.setArcSize(18);         // 圆角大小
+        bubble.setShowTail(false);
+        bubble.setArcSize(18);
 
-        JLabel timeLabel = new JLabel(DateUtil.formatTime(msg.getCreatedAt()));
-        timeLabel.setFont(new Font("微软雅黑", Font.PLAIN, 10));
-        timeLabel.setForeground(new Color(160, 160, 160));
+        JLabel time = new JLabel(msg.getCreatedAt() > 0 ? DateUtil.formatTime(msg.getCreatedAt()) : "");
+        time.setFont(new Font("微软雅黑", Font.PLAIN, 10));
+        time.setForeground(new Color(160,160,160));
 
-        JPanel bubblePanel = new JPanel(new BorderLayout(0, 4));
-        bubblePanel.setOpaque(false);
-        bubblePanel.add(bubble, BorderLayout.CENTER);
-        bubblePanel.add(timeLabel, BorderLayout.SOUTH);
-
-        // ========== 组装布局 ==========
-        // 自己的消息：头像在右，气泡在左
-        // 对方的消息：头像在左，气泡在右
+        bubbleWithTime.setOpaque(false);
+        bubbleWithTime.add(bubble, BorderLayout.CENTER);
+        bubbleWithTime.add(time, BorderLayout.SOUTH);
         if (isSender) {
-            add(bubblePanel, BorderLayout.CENTER);
+            add(bubbleWithTime, BorderLayout.CENTER);
             add(avatarPanel, BorderLayout.EAST);
-            // 时间右对齐
-            timeLabel.setHorizontalAlignment(SwingConstants.RIGHT);
         } else {
             add(avatarPanel, BorderLayout.WEST);
-            add(bubblePanel, BorderLayout.CENTER);
-            timeLabel.setHorizontalAlignment(SwingConstants.LEFT);
+            add(bubbleWithTime, BorderLayout.CENTER);
         }
 
-        //右键撤回（仅自己的正式消息）
         if (isSender && msg.getMessageId() > 0) {
             addMouseListener(new MouseAdapter() {
                 public void mouseClicked(MouseEvent e) {
-                    if (SwingUtilities.isRightMouseButton(e) && recallCallback != null) {
+                    if (SwingUtilities.isRightMouseButton(e) && recallCallback != null)
                         recallCallback.accept(msg.getMessageId());
-                    }
                 }
             });
         }
     }
 
-    public void setOnRecallCallback(Consumer<Long> cb) {
-        this.recallCallback = cb;
-    }
-    public void setMessageMaxWidth(int width) {
-        if (bubble != null) {
-            bubble.setMaxWidth(width);
-        }
-    }
+    public void setMessageMaxWidth(int w) { if (bubble != null) bubble.setMaxWidth(w); }
+    public void setOnRecallCallback(Consumer<Long> cb) { this.recallCallback = cb; }
+
     @Override
     public Dimension getPreferredSize() {
-        Dimension bubbleDim = (bubble != null) ? bubble.getPreferredSize() : new Dimension(0, 0);
-        int avatarWidth = 50;   // 头像区域固定宽度
-        int height = Math.max(bubbleDim.height, 60);
-        return new Dimension(bubbleDim.width + avatarWidth, height);
+        Dimension bubbleTimeSize = (bubbleWithTime != null)
+                ? bubbleWithTime.getPreferredSize() : new Dimension(0, 0);
+        Dimension avSize = (avatarPanel != null)
+                ? avatarPanel.getPreferredSize() : new Dimension(0, 0);
+        int w = bubbleTimeSize.width + avSize.width;
+        int h = Math.max(bubbleTimeSize.height, avSize.height);
+        return new Dimension(w, h);
     }
 }
 

@@ -7,156 +7,98 @@ import java.awt.geom.RoundRectangle2D;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * 高级聊天气泡组件
- * 支持多行文本、带尖角指示、阴影等高级特性
- */
 public class ChatBubble extends JPanel {
     private String message;
     private boolean isSender;
-    private Color bubbleColor;
-    private Color textColor;
-    private int arcSize = 15;
-    private int padding = 12;
-    private int tailSize = 10;  // 尖角大小
-    private boolean showTail = false;  // 是否显示尖角
-    private boolean showShadow = true;  // 是否显示阴影
-    private int maxWidth = 300;  // 最大宽度，用于换行
+    private Color bubbleColor, textColor;
+    private int arcSize = 18, padding = 10, maxWidth = 300;
+    private boolean showTail = false, showShadow = true;
 
     public ChatBubble(String message, boolean isSender) {
         this.message = message;
         this.isSender = isSender;
-
-        if (isSender) {
-            this.bubbleColor = new Color(79, 183, 245);
-            this.textColor = Color.WHITE;
-        } else {
-            this.bubbleColor = new Color(230, 230, 230);
-            this.textColor = Color.BLACK;
-        }
-
+        this.bubbleColor = isSender ? new Color(18, 183, 245) : Color.WHITE;
+        this.textColor = isSender ? Color.WHITE : Color.BLACK;
         setOpaque(false);
         setFont(new Font("微软雅黑", Font.PLAIN, 14));
     }
 
-    /**
-     * 将文本分行显示
-     */
+    // 精确换行（中英文均可）
     private String[] wrapText(String text, FontMetrics fm) {
-        if (text == null || text.isEmpty()) return new String[]{""};
-
         List<String> lines = new ArrayList<>();
-        int maxLineWidth = maxWidth - padding * 2; // 可用文本总宽度
-        int currentWidth = 0;
-        StringBuilder currentLine = new StringBuilder();
-
-        for (int i = 0; i < text.length(); i++) {
-            char c = text.charAt(i);
-            // 处理换行符（保留）
+        int maxLineW = maxWidth - 2 * padding;
+        StringBuilder line = new StringBuilder();
+        int lineW = 0;
+        for (char c : text.toCharArray()) {
             if (c == '\n') {
-                lines.add(currentLine.toString());
-                currentLine.setLength(0);
-                currentWidth = 0;
+                lines.add(line.toString());
+                line.setLength(0); lineW = 0;
                 continue;
             }
-
-            int charWidth = fm.charWidth(c);  // 单字符宽度（中英文都适应）
-            if (currentWidth + charWidth > maxLineWidth) {
-                // 当前字符放不下，先提交已有行
-                lines.add(currentLine.toString());
-                currentLine.setLength(0);
-                currentWidth = 0;
+            int cw = fm.charWidth(c);
+            if (lineW + cw > maxLineW && line.length() > 0) {
+                lines.add(line.toString());
+                line.setLength(0); lineW = 0;
             }
-
-            currentLine.append(c);
-            currentWidth += charWidth;
+            line.append(c);
+            lineW += cw;
         }
-
-        if (currentLine.length() > 0) {
-            lines.add(currentLine.toString());
-        }
-
+        if (line.length() > 0) lines.add(line.toString());
         return lines.isEmpty() ? new String[]{""} : lines.toArray(new String[0]);
     }
 
     @Override
-    //绘制消息气泡
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
         Graphics2D g2d = (Graphics2D) g;
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-
         FontMetrics fm = g2d.getFontMetrics();
         String[] lines = wrapText(message, fm);
+        int lineH = fm.getHeight();
+        int textH = lineH * lines.length;
+        int maxTextW = 0;
+        for (String line : lines) maxTextW = Math.max(maxTextW, fm.stringWidth(line));
+        int bubbleW = maxTextW + padding * 2;
+        if (showTail) bubbleW += 10;
+        int bubbleH = textH + padding * 2;
 
-        int lineHeight = fm.getHeight();
-        int textHeight = lineHeight * lines.length;
-        int maxTextWidth = 0;
-        for (String line : lines) {
-            maxTextWidth = Math.max(maxTextWidth, fm.stringWidth(line));
-        }
+        int y = 2;                     // 顶部留白
+        int x = isSender ? getWidth() - bubbleW - 2 : 2;
 
-        int bubbleWidth = maxTextWidth + padding * 2;
-        int bubbleHeight = textHeight + padding * 2;
-
-        int x, y = 2;
-        if (isSender) {
-            x = getWidth() - bubbleWidth - 2;
-        } else {
-            x = 2;
-        }
-        y = 10;
-
-        // 绘制阴影
+        // 阴影
         if (showShadow) {
             g2d.setColor(new Color(0, 0, 0, 30));
-            RoundRectangle2D shadow = new RoundRectangle2D.Float(
-                    x + 2, y + 2, bubbleWidth, bubbleHeight, arcSize, arcSize
-            );
-            g2d.fill(shadow);
+            g2d.fill(new RoundRectangle2D.Float(x + 2, y + 2, bubbleW, bubbleH, arcSize, arcSize));
         }
-
-        // 绘制气泡背景
-        RoundRectangle2D bubble = new RoundRectangle2D.Float(
-                x, y, bubbleWidth, bubbleHeight, arcSize, arcSize
-        );
+        // 气泡
         g2d.setColor(bubbleColor);
-        g2d.fill(bubble);
-
-        // 绘制尖角
+        g2d.fill(new RoundRectangle2D.Float(x, y, bubbleW, bubbleH, arcSize, arcSize));
+        // 尖角
         if (showTail) {
             Path2D tail = new Path2D.Float();
             if (isSender) {
-                // 右侧尖角
-                tail.moveTo(x + bubbleWidth, y + 20);
-                tail.lineTo(x + bubbleWidth + tailSize, y + 15);
-                tail.lineTo(x + bubbleWidth, y + 30);
-                tail.closePath();
+                tail.moveTo(x + bubbleW, y + 12);
+                tail.lineTo(x + bubbleW + 10, y + 8);
+                tail.lineTo(x + bubbleW, y + 20);
             } else {
-                // 左侧尖角
-                tail.moveTo(x, y + 20);
-                tail.lineTo(x - tailSize, y + 15);
-                tail.lineTo(x, y + 30);
-                tail.closePath();
+                tail.moveTo(x, y + 12);
+                tail.lineTo(x - 10, y + 8);
+                tail.lineTo(x, y + 20);
             }
+            tail.closePath();
             g2d.fill(tail);
         }
+        // 边框（轻量）
+        g2d.setColor(new Color(150, 150, 150, 50));
+        g2d.draw(new RoundRectangle2D.Float(x, y, bubbleW, bubbleH, arcSize, arcSize));
 
-        // 绘制气泡边框
-        g2d.setColor(new Color(150, 150, 150, 30));
-        g2d.setStroke(new BasicStroke(1));
-        g2d.draw(bubble);
-
-        // 绘制文字
+        // 文字
         g2d.setColor(textColor);
-        g2d.setFont(getFont());
         int textX = x + padding;
         int textY = y + padding + fm.getAscent();
-
         for (String line : lines) {
             g2d.drawString(line, textX, textY);
-            textY += lineHeight;
+            textY += lineH;
         }
     }
 
@@ -164,52 +106,22 @@ public class ChatBubble extends JPanel {
     public Dimension getPreferredSize() {
         FontMetrics fm = getFontMetrics(getFont());
         String[] lines = wrapText(message, fm);
-        int lineHeight = fm.getHeight();
-        int textHeight = lineHeight * lines.length;
-        int maxTextWidth = 0;
-        for (String line : lines) {
-            maxTextWidth = Math.max(maxTextWidth, fm.stringWidth(line));
-        }
-
-        int bubbleWidth = maxTextWidth + padding * 2;
-        if (showTail) bubbleWidth += tailSize;
-        bubbleWidth = Math.min(bubbleWidth, maxWidth);
-
-        int bubbleHeight = textHeight + padding * 2 + 8;       // 气泡内容高度
-        int totalHeight = 2 + bubbleHeight + 2;                // y起始偏移2 + 内容 + 底部留白2
-        return new Dimension(bubbleWidth, totalHeight);
+        int lineH = fm.getHeight();
+        int textH = lineH * lines.length;
+        int maxTextW = 0;
+        for (String line : lines) maxTextW = Math.max(maxTextW, fm.stringWidth(line));
+        int bubbleW = maxTextW + padding * 2;
+        if (showTail) bubbleW += 10;
+        int bubbleH = textH + padding * 2;
+        int totalW = 2 + bubbleW + 2;          // 左右各留2px
+        int totalH = 2 + (showShadow ? 2 : 0) + bubbleH + 2;
+        return new Dimension(totalW, totalH);
     }
 
-    // Getter和Setter
-    public void setMessage(String message) {
-        this.message = message;
-        repaint();
-        revalidate();
-    }
-
-    public void setMaxWidth(int maxWidth) {
-        this.maxWidth = maxWidth;
-        repaint();
-        revalidate();
-    }
-
-    public void setShowTail(boolean showTail) {
-        this.showTail = showTail;
-        repaint();
-    }
-
-    public void setShowShadow(boolean showShadow) {
-        this.showShadow = showShadow;
-        repaint();
-    }
-
-    // 设置圆角大小
-    public void setArcSize(int arcSize) {
-        this.arcSize = arcSize;
-        repaint();
-    }
-
-
+    public void setMaxWidth(int w) { this.maxWidth = w; revalidate(); repaint(); }
+    public void setArcSize(int a) { this.arcSize = a; repaint(); }
+    public void setShowTail(boolean b) { this.showTail = b; repaint(); }
+    public void setShowShadow(boolean b) { this.showShadow = b; repaint(); }
 }
 
 

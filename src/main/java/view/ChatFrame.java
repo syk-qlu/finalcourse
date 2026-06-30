@@ -265,6 +265,7 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
         chatScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         chatScrollPane.getVerticalScrollBar().setUnitIncrement(20);
         chatScrollPane.setBorder(BorderFactory.createEmptyBorder());
+        chatScrollPane.getVerticalScrollBar().setUI(new ScrollBarUI());
         chat.add(chatScrollPane);
 
         // 工具栏
@@ -302,6 +303,7 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
         sendBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         sendBtn.addActionListener(e -> sendMessage());
         chat.add(sendBtn);
+
 
         return chat;
     }
@@ -414,27 +416,28 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
         MessageBubblePanel bubble = new MessageBubblePanel(sender, msg, isSender);
         bubble.setOpaque(false);
 
+        // 1. 限制文本最大宽度（聊天区宽度 - 预留空间）
         int chatWidth = chatScrollPane.getViewport().getWidth();
         if (chatWidth <= 0) chatWidth = 600;
-        int maxTextWidth = chatWidth - 90;
-        bubble.setMessageMaxWidth(maxTextWidth);
+        bubble.setMessageMaxWidth(chatWidth - 110);      // 头像区50 + 边距60
 
-        // 用 BorderLayout 行进行左右对齐，避免宽度拉伸
+        // 2. 构建一行，用 BorderLayout 左/右对齐
         JPanel row = new JPanel(new BorderLayout());
         row.setOpaque(false);
+
         if (isSender) {
-            row.add(bubble, BorderLayout.EAST);
+            row.add(bubble, BorderLayout.EAST);          // 自己的消息靠右
         } else {
-            row.add(bubble, BorderLayout.WEST);
+            row.add(bubble, BorderLayout.WEST);          // 对方的消息靠左
         }
 
-        // 让行高度 = 气泡的真实高度，避免裁切
+        // 3. 行的高度 = 气泡的实际高度，宽度随便（BoxLayout不会横向拉伸行）
         Dimension bubbleSize = bubble.getPreferredSize();
         row.setPreferredSize(new Dimension(1, bubbleSize.height));
         row.setMinimumSize(new Dimension(1, bubbleSize.height));
         row.setMaximumSize(new Dimension(Short.MAX_VALUE, bubbleSize.height));
 
-        // 撤回回调（仅正式消息）
+        // 4. 撤回回调（仅正式消息）
         if (isSender && msg.getMessageId() > 0) {
             bubble.setOnRecallCallback(id -> {
                 if (currentChatUser != null) {
@@ -448,6 +451,7 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
             });
         }
 
+        // 5. 将行加入垂直面板
         messageDisplayPanel.add(row);
     }
     //刷新消息面板
