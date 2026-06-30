@@ -1,96 +1,77 @@
 package view;
 
 import model.Group;
+import service.ChatService;
 
 import javax.swing.*;
 import java.awt.*;
 import java.util.List;
 import java.util.function.Consumer;
 
-import static javax.swing.BoxLayout.Y_AXIS;
-
 public class GroupListPane extends JPanel {
     private JPanel listPanel;
     private List<Group> groups;
     private Consumer<Group> onSelectCallback;
-    private GroupItem selectedItem;
+    private ChatService chatService;
+    private int userId;
+    private ChatFrame chatFrame;
 
-    public GroupListPane(List<Group> groups, Consumer<Group> onSelectCallback) {
+    public GroupListPane(List<Group> groups, Consumer<Group> callback, ChatService chatService, int userId, ChatFrame frame) {
         this.groups = groups;
-        this.onSelectCallback = onSelectCallback;
+        this.onSelectCallback = callback;
+        this.chatService = chatService;
+        this.userId = userId;
+        this.chatFrame = frame;
+        setLayout(new BorderLayout());
+        setBackground(new Color(245, 245, 245));
 
-        setLayout(null);
-        setBackground(new Color(239, 239, 239));
+        // 顶部按钮
+        JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 5));
+        topPanel.setBackground(new Color(245, 245, 245));
+        JButton createBtn = new JButton("+ 创建群聊");
+        createBtn.setFont(new Font("微软雅黑", Font.PLAIN, 12));
+        createBtn.setBackground(new Color(18, 183, 245));
+        createBtn.setForeground(Color.WHITE);
+        createBtn.setFocusPainted(false);
+        createBtn.addActionListener(e -> showCreateGroupDialog());
+        topPanel.add(createBtn);
+        add(topPanel, BorderLayout.NORTH);
 
-        // 新建群组按钮
-        JButton createGroupBtn = new JButton("+ 创建群组");
-        createGroupBtn.setBounds(10, 10, 190, 30);
-        createGroupBtn.setFont(new Font("微软雅黑", Font.PLAIN, 12));
-        createGroupBtn.setBackground(new Color(79, 183, 245));
-        createGroupBtn.setForeground(Color.WHITE);
-        createGroupBtn.setFocusPainted(false);
-        createGroupBtn.setBorder(BorderFactory.createEmptyBorder());
-        createGroupBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        add(createGroupBtn);
-
-        // 群组列表面板
         listPanel = new JPanel();
-        listPanel.setLayout(new BoxLayout(listPanel, Y_AXIS));
-        listPanel.setBackground(new Color(239, 239, 239));
+        listPanel.setLayout(new BoxLayout(listPanel, BoxLayout.Y_AXIS));
+        listPanel.setBackground(new Color(245, 245, 245));
 
-        // 滚动面板
-        JScrollPane listScroller = new JScrollPane(listPanel);
-        listScroller.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
-        listScroller.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        JScrollBar verticalBar = listScroller.getVerticalScrollBar();
-        verticalBar.setUI(new ScrollBarUI());
-        verticalBar.setPreferredSize(new Dimension(12, 0));
-        listScroller.setBorder(null);
-        listScroller.setBounds(0, 50, 250, 600);
-        SmoothScroll.enable(listScroller);
-        add(listScroller);
+        JScrollPane scroller = new JScrollPane(listPanel);
+        scroller.setBorder(null);
+        add(scroller, BorderLayout.CENTER);
 
-        // 添加群组
         updateGroups(groups);
     }
 
-    public void updateGroups(List<Group> newGroups) {
-        this.groups = newGroups;
+    public void updateGroups(List<Group> gs) {
+        this.groups = gs;
         listPanel.removeAll();
-
-        for (Group group : groups) {
-            GroupItem item = new GroupItem(group, this::selectItem);
+        for (Group g : groups) {
+            GroupItem item = new GroupItem(g, this::selectGroup);
             listPanel.add(item);
         }
-
         listPanel.revalidate();
         listPanel.repaint();
     }
 
-    public void selectItem(Group group) {
-        // 取消之前的选中状态
-        for (Component comp : listPanel.getComponents()) {
-            if (comp instanceof GroupItem) {
-                GroupItem item = (GroupItem) comp;
-                item.setSelected(false);
-            }
-        }
+    private void selectGroup(Group g) {
+        if (onSelectCallback != null) onSelectCallback.accept(g);
+    }
 
-        // 设置当前选中
-        for (Component comp : listPanel.getComponents()) {
-            if (comp instanceof GroupItem) {
-                GroupItem item = (GroupItem) comp;
-                if (item.getGroup().equals(group)) {
-                    item.setSelected(true);
-                    selectedItem = item;
-                    break;
-                }
-            }
-        }
-
-        // 调用回调
-        if (onSelectCallback != null) {
-            onSelectCallback.accept(group);
+    private void showCreateGroupDialog() {
+        String name = JOptionPane.showInputDialog(chatFrame, "群聊名称：");
+        if (name == null || name.trim().isEmpty()) return;
+        int gid = chatService.createGroup(name.trim(), userId, "");
+        if (gid > 0) {
+            JOptionPane.showMessageDialog(chatFrame, "群聊创建成功");
+            chatFrame.loadData();
+        } else {
+            JOptionPane.showMessageDialog(chatFrame, "创建失败");
         }
     }
 }

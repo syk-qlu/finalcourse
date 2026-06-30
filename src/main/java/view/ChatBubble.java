@@ -4,6 +4,8 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.geom.Path2D;
 import java.awt.geom.RoundRectangle2D;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 高级聊天气泡组件
@@ -41,26 +43,40 @@ public class ChatBubble extends JPanel {
      * 将文本分行显示
      */
     private String[] wrapText(String text, FontMetrics fm) {
-        java.util.List<String> lines = new java.util.ArrayList<>();
-        String[] words = text.split(" ");
+        if (text == null || text.isEmpty()) return new String[]{""};
+
+        List<String> lines = new ArrayList<>();
+        int maxLineWidth = maxWidth - padding * 2; // 可用文本总宽度
+        int currentWidth = 0;
         StringBuilder currentLine = new StringBuilder();
 
-        for (String word : words) {
-            String testLine = currentLine.length() == 0 ? word : currentLine + " " + word;
-            if (fm.stringWidth(testLine) < maxWidth - padding * 2) {
-                currentLine.append(currentLine.length() == 0 ? word : " " + word);
-            } else {
-                if (currentLine.length() > 0) {
-                    lines.add(currentLine.toString());
-                }
-                currentLine = new StringBuilder(word);
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            // 处理换行符（保留）
+            if (c == '\n') {
+                lines.add(currentLine.toString());
+                currentLine.setLength(0);
+                currentWidth = 0;
+                continue;
             }
+
+            int charWidth = fm.charWidth(c);  // 单字符宽度（中英文都适应）
+            if (currentWidth + charWidth > maxLineWidth) {
+                // 当前字符放不下，先提交已有行
+                lines.add(currentLine.toString());
+                currentLine.setLength(0);
+                currentWidth = 0;
+            }
+
+            currentLine.append(c);
+            currentWidth += charWidth;
         }
+
         if (currentLine.length() > 0) {
             lines.add(currentLine.toString());
         }
 
-        return lines.toArray(new String[0]);
+        return lines.isEmpty() ? new String[]{""} : lines.toArray(new String[0]);
     }
 
     @Override

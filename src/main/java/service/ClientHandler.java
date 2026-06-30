@@ -209,21 +209,20 @@ public class ClientHandler implements Runnable {
      */
     private void handleMessageRecall(ChatMessage message) throws IOException {
         long messageId = message.getMessageId();
-
-        // 撤回消息
         if (message.getGroupId() != null) {
             messageDAO.recallGroupMessage(messageId, userId);
         } else {
             messageDAO.recallMessage(messageId, userId);
         }
-
-        // 通知接收者
+        // 通知接收者（如果有）
         int receiverId = message.getToUserId();
         if (receiverId > 0) {
             server.forwardMessage(message);
         }
-
-        System.out.println("消息撤回: " + username + " 撤回了消息 " + messageId);
+        // ★ 回显给发送者，让发送者也更新界面
+        try {
+            sendMessage(message);  // 将撤回消息发给发送者自己
+        } catch (IOException ignored) {}
     }
 
     /**

@@ -121,7 +121,7 @@ public class LoginFrame extends JFrame {
             return;
         }
 
-        if (userService.register(username, password, "")) {
+        if (userService.register(username, password, null)) {
             messageLabel.setText("");
             messageLabel.setForeground(new Color(100, 200, 100));
             messageLabel.setText("注册成功，请登录");

@@ -16,9 +16,8 @@ public class FriendshipDAO {
     public List<User> getUserFriends(int userId) {
         List<User> friends = new ArrayList<>();
         String sql = "SELECT u.* FROM users u " +
-                "INNER JOIN friendships f ON (u.user_id = f.friend_id OR u.user_id = f.user_id) " +
-                "WHERE (f.user_id = ? OR f.friend_id = ?) AND f.status = 'accepted' " +
-                "AND u.user_id != ? " +
+                "INNER JOIN friendships f ON f.friend_id = u.user_id " +
+                "WHERE f.user_id = ? AND f.status = 'accepted' " +
                 "ORDER BY f.is_top DESC, f.top_time DESC";
         Connection conn = null;
         PreparedStatement pstmt = null;
@@ -27,9 +26,7 @@ public class FriendshipDAO {
         try {
             conn = DBConnection.getConnection();
             pstmt = conn.prepareStatement(sql);
-            pstmt.setInt(1, userId);
-            pstmt.setInt(2, userId);
-            pstmt.setInt(3, userId);
+            pstmt.setInt(1, userId);   // 只用一个参数
             rs = pstmt.executeQuery();
 
             while (rs.next()) {

@@ -14,23 +14,20 @@ public class UserDAO {
      */
     public boolean addUser(String username, String password, String email) {
         String sql = "INSERT INTO users (username, password, email, status) VALUES (?, ?, ?, 'offline')";
-        Connection conn = null;
-        PreparedStatement pstmt = null;
-
-        try {
-            conn = DBConnection.getConnection();
-            pstmt = conn.prepareStatement(sql);
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, username);
             pstmt.setString(2, encryptPassword(password));
-            pstmt.setString(3, email);
+            if (email != null && !email.trim().isEmpty()) {
+                pstmt.setString(3, email.trim());
+            } else {
+                pstmt.setNull(3, Types.VARCHAR);
+            }
             return pstmt.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();
-        } finally {
-            DBConnection.closeStatement(pstmt);
-            DBConnection.closeConnection(conn);
+            return false;
         }
-        return false;
     }
 
     /**

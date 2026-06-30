@@ -200,4 +200,22 @@ public class MessageDAO {
         msg.setCreatedAt(rs.getLong("created_at"));
         return msg;
     }
+
+    /**
+     * 找到两个用户之间的最后一条消息内容
+     * @param user1
+     * @param user2
+     * @return
+     */
+    public String getLastMessageContent(int user1, int user2) {
+        String sql = "SELECT content FROM messages WHERE (sender_id=? AND receiver_id=?) OR (sender_id=? AND receiver_id=?) ORDER BY created_at DESC LIMIT 1";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, user1); ps.setInt(2, user2);
+            ps.setInt(3, user2); ps.setInt(4, user1);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) return rs.getString(1);
+        } catch (SQLException e) { e.printStackTrace(); }
+        return "";
+    }
 }

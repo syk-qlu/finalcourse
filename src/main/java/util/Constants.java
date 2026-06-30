@@ -1,5 +1,7 @@
 package util;
 
+import java.awt.*;
+
 public class Constants {
     // 消息类型
     public static final String MESSAGE_TYPE_TEXT = "text";
@@ -13,13 +15,17 @@ public class Constants {
 
     // UI常量
     public static final int AVATAR_SIZE = 40;
-    public static final int MESSAGE_MAX_WIDTH = 450;
-    public static final int WINDOW_WIDTH = 1010;
-    public static final int WINDOW_HEIGHT = 675;
+    public static final int MESSAGE_MAX_WIDTH = 400;
+    public static final int WINDOW_WIDTH = 1050;
+    public static final int WINDOW_HEIGHT = 700;
 
-    // 颜色常量
-    public static final java.awt.Color COLOR_SENDER = new java.awt.Color(79, 183, 245);
-    public static final java.awt.Color COLOR_RECEIVER = new java.awt.Color(230, 230, 230);
-    public static final java.awt.Color COLOR_TEXT_SENDER = java.awt.Color.WHITE;
-    public static final java.awt.Color COLOR_TEXT_RECEIVER = java.awt.Color.BLACK;
+    // 颜色常量 - QQ风格
+    public static final Color COLOR_PRIMARY = new Color(18, 183, 245); // QQ蓝
+    public static final Color COLOR_NAV_BG = new Color(42, 46, 54);
+    public static final Color COLOR_LIST_BG = new Color(245, 245, 245);
+    public static final Color COLOR_CHAT_BG = new Color(240, 240, 240);
+    public static final Color COLOR_SENDER = new Color(18, 183, 245);
+    public static final Color COLOR_RECEIVER = Color.WHITE;
+    public static final Color COLOR_TEXT_SENDER = Color.WHITE;
+    public static final Color COLOR_TEXT_RECEIVER = Color.BLACK;
 }

@@ -12,33 +12,35 @@ import util.FileUtil;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
+import java.awt.event.*;
 import java.io.File;
-import java.util.ArrayList;
+import java.util.*;
 import java.util.List;
 import java.util.Timer;
-import java.util.TimerTask;
 
 public class ChatFrame extends JFrame implements ChatClient.MessageListener {
     private User currentUser;
     private User currentChatUser;
     private Group currentGroup;
 
-    private JPanel navPane;
-    private JTabbedPane tabbedPane;
+    // 顶级容器
+    private JPanel leftNavPane;
+    private JPanel contactPanelWrapper;
+    private JPanel chatAreaPanel;
     private ContactListPane contactListPane;
     private GroupListPane groupListPane;
-    private JPanel chatPanel;
-    private JLabel chatTitle;
-    private JLabel statusLabel;
-    private JScrollPane chatScroller;
+    private JTabbedPane tabbedPane;
+
+    // 聊天区组件
+    private JLabel chatTitleLabel;
+    private JLabel chatStatusLabel;
+    private JScrollPane chatScrollPane;
     private JPanel messageDisplayPanel;
     private JTextArea inputArea;
-    private JButton sendButton;
-    private JButton sendFileButton;
-    private JButton sendImageButton;
+    private JButton sendBtn;
+    private JPanel toolBar;
 
+    // 服务
     private ChatService chatService;
     private FileService fileService;
     private ChatClient chatClient;
@@ -46,31 +48,32 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
     private List<Group> groups;
     private Timer heartbeatTimer;
 
-    // 放大后的窗口尺寸
-    private int frameWidth;
-    private int frameHeight;
+    // 未读消息计数：好友ID -> 未读数
+    protected Map<Integer, Integer> unreadCountMap = new HashMap<>();
 
-    // 左侧面板总宽度（导航栏60 + 列表250）
-    private static final int LEFT_WIDTH = 310;
+    // 窗口尺寸
+    private int frameWidth = Constants.WINDOW_WIDTH;
+    private int frameHeight = Constants.WINDOW_HEIGHT;
+
+    // 布局常量
+    private static final int NAV_WIDTH = 60;
+    private static final int LIST_WIDTH = 260;
+    private static final int CHAT_HEADER_HEIGHT = 60;
+    private static final int TOOLBAR_HEIGHT = 36;
+    private static final int INPUT_HEIGHT = 100;
+    private static final int SEND_BTN_WIDTH = 80;
 
     public ChatFrame(User loginUser) {
         this.currentUser = loginUser;
         this.chatService = new ChatService();
-        this.fileService = FileService.class.getEnumConstants() == null ? null : new FileService();
+        this.fileService = new FileService();
         this.chatClient = new ChatClient();
         this.contacts = new ArrayList<>();
         this.groups = new ArrayList<>();
 
-        // 连接到服务器
         connectToServer();
-
-        // 初始化UI
-        initializeUI();
-
-        // 加载数据
+        initUI();
         loadData();
-
-        // 启动心跳检测
         startHeartbeat();
 
         addWindowListener(new WindowAdapter() {
@@ -82,621 +85,539 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
 
         setVisible(true);
     }
-//连接服务端
+
     private void connectToServer() {
         boolean connected = chatClient.connect("localhost", 9999);
         if (connected) {
             chatClient.setMessageListener(this);
-            // 登录
             chatClient.login(currentUser.getUserId(), currentUser.getUsername());
         } else {
             JOptionPane.showMessageDialog(this, "无法连接到服务器");
         }
     }
 
-    private void initializeUI() {
-        // 计算放大20%后的窗口尺寸
-        frameWidth = (int) (Constants.WINDOW_WIDTH * 1.2);
-        frameHeight = (int) (Constants.WINDOW_HEIGHT * 1.2);
-
-        setTitle("聊天应用 - " + currentUser.getUsername());
+    private void initUI() {
+        setTitle("QChat - " + currentUser.getUsername());
         setSize(frameWidth, frameHeight);
         setResizable(false);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
-        initLeftNav();
-        initChatPanel();
+        // 整体使用 BorderLayout，左侧固定 NAV+LIST，右侧聊天
+        JPanel mainPanel = new JPanel(new BorderLayout());
+        mainPanel.setBackground(Constants.COLOR_NAV_BG);
 
-        JPanel leftAll = new JPanel(null);
-        leftAll.setBounds(0, 0, LEFT_WIDTH, frameHeight);
-        leftAll.add(navPane);
+        // 左侧导航栏
+        leftNavPane = createNavPane();
+        mainPanel.add(leftNavPane, BorderLayout.WEST);
 
+        // 中间列表区域（带 Tab 切换好友/群聊）
+        JPanel listPanel = new JPanel(new BorderLayout());
+        listPanel.setPreferredSize(new Dimension(260, frameHeight));
+        listPanel.setBackground(Constants.COLOR_LIST_BG);
+
+        // 搜索框
+        JTextField searchField = new JTextField();
+        searchField.setFont(new Font("微软雅黑", Font.PLAIN, 12));
+        searchField.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createEmptyBorder(5, 10, 5, 10),
+                BorderFactory.createLineBorder(new Color(200, 200, 200), 1, true)
+        ));
+        searchField.setPreferredSize(new Dimension(LIST_WIDTH - 20, 30));
+        searchField.setBackground(Color.WHITE);
+        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 8));
+        searchPanel.setBackground(Constants.COLOR_LIST_BG);
+        searchPanel.add(searchField);
+        listPanel.add(searchPanel, BorderLayout.NORTH);
+
+        // Tab 面板（好友/群聊）
         tabbedPane = new JTabbedPane();
-        tabbedPane.setBounds(60, 0, LEFT_WIDTH - 60, frameHeight);
+        tabbedPane.setFont(new Font("微软雅黑", Font.PLAIN, 12));
+        tabbedPane.setBackground(Constants.COLOR_LIST_BG);
+        tabbedPane.setBorder(BorderFactory.createEmptyBorder());
 
-        JPanel friendPanel = new JPanel(null);
+        contactListPane = new ContactListPane(contacts, this::switchChat, chatService, currentUser.getUserId(), this);
+        tabbedPane.addTab("好友", contactListPane);
 
-        // 计算 tabbedPane 内容面板的可用高度（减去 tab 标签栏高度，约50像素）
-        int tabContentHeight = frameHeight - 50;
+        groupListPane = new GroupListPane(groups, this::switchGroup, chatService, currentUser.getUserId(), this);
+        tabbedPane.addTab("群聊", groupListPane);
 
-        friendPanel.setLayout(null);
-        contactListPane = new ContactListPane(contacts, this::switchChat, chatService, currentUser.getUserId());
-        contactListPane.setBounds(0, 0, 250, tabContentHeight);  // 关键：赋予尺寸
-        friendPanel.add(contactListPane);
-        tabbedPane.addTab("好友", friendPanel);
+        listPanel.add(tabbedPane, BorderLayout.CENTER);
+        mainPanel.add(listPanel, BorderLayout.CENTER);
 
+        // 右侧聊天区
+        chatAreaPanel = createChatPanel();
+        mainPanel.add(chatAreaPanel, BorderLayout.EAST);
 
-        JPanel groupPanel = new JPanel(null);
-        groupPanel.setLayout(null);
-        groupListPane = new GroupListPane(groups, this::switchGroup);
-        groupPanel.add(groupListPane);
-        tabbedPane.addTab("群聊", groupPanel);
+        // 设置 searchField 搜索功能
+        searchField.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyReleased(KeyEvent e) {
+                String keyword = searchField.getText().trim();
+                if (tabbedPane.getSelectedIndex() == 0) {
+                    contactListPane.filterContacts(keyword);
+                } else {
+                    // 群聊搜索暂略
+                }
+            }
+        });
 
-        leftAll.add(tabbedPane);
-
-        JSplitPane mainSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftAll, chatPanel);
-        mainSplit.setDividerSize(0);
-        mainSplit.setDividerLocation(LEFT_WIDTH);
-        mainSplit.setEnabled(false);
-
-        setContentPane(mainSplit);
+        setContentPane(mainPanel);
     }
 
-    private void initLeftNav() {
-        navPane = new JPanel(null);
-        navPane.setBounds(0, 0, 60, frameHeight);
-        navPane.setBackground(new Color(29, 35, 42));
+    private JPanel createNavPane() {
+        JPanel nav = new JPanel(null);
+        nav.setPreferredSize(new Dimension(NAV_WIDTH, frameHeight));
+        nav.setBackground(Constants.COLOR_NAV_BG);
 
+        // 头像
         JLabel headLabel = new JLabel(currentUser.getHeadIcon());
-        headLabel.setBounds(6, 6, 48, 48);
-        navPane.add(headLabel);
+        headLabel.setBounds(10, 15, 40, 40);
+        headLabel.setToolTipText(currentUser.getUsername());
+        nav.add(headLabel);
 
-        JSeparator separator = new JSeparator(JSeparator.HORIZONTAL);
-        separator.setBounds(0, 60, 60, 1);
-        navPane.add(separator);
+        // 在线状态
+        JLabel statusLabel = new JLabel("在线");
+        statusLabel.setFont(new Font("微软雅黑", Font.PLAIN, 9));
+        statusLabel.setForeground(new Color(52, 211, 153));
+        statusLabel.setBounds(12, 58, 36, 16);
+        statusLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        nav.add(statusLabel);
 
-        JLabel statusLight = new JLabel();
-        statusLight.setBounds(10, 70, 40, 40);
-        statusLight.setOpaque(true);
-        statusLight.setBackground(new Color(52, 211, 153));
-        statusLight.setFont(new Font("微软雅黑", Font.PLAIN, 10));
-        statusLight.setText("在线");
-        statusLight.setHorizontalAlignment(SwingConstants.CENTER);
-        navPane.add(statusLight);
+        // 分隔线
+        JSeparator sep = new JSeparator(JSeparator.HORIZONTAL);
+        sep.setBounds(5, 80, 50, 1);
+        sep.setForeground(new Color(80, 80, 80));
+        nav.add(sep);
 
-        // 添加好友按钮
-        JButton addFriendBtn = new JButton("+ 好友");
-        addFriendBtn.setBounds(5, frameHeight - 110, 50, 30);
-        addFriendBtn.setFont(new Font("微软雅黑", Font.PLAIN, 9));
-        addFriendBtn.setBackground(new Color(79, 183, 245));
-        addFriendBtn.setForeground(Color.WHITE);
-        addFriendBtn.setFocusPainted(false);
-        addFriendBtn.setBorder(BorderFactory.createEmptyBorder());
-        addFriendBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        // 功能按钮
+        int btnY = 100;
+        JButton addFriendBtn = createNavButton("+好友");
+        addFriendBtn.setBounds(5, btnY, 50, 30);
         addFriendBtn.addActionListener(e -> showAddFriendDialog());
-        navPane.add(addFriendBtn);
-        // 加入群聊按钮
-        JButton joinGroupBtn = new JButton("+ 群聊");
-        joinGroupBtn.setBounds(5, frameHeight - 70, 50, 30);
-        joinGroupBtn.setFont(new Font("微软雅黑", Font.PLAIN, 9));
-        joinGroupBtn.setBackground(new Color(100, 200, 100));
-        joinGroupBtn.setForeground(Color.WHITE);
-        joinGroupBtn.setFocusPainted(false);
-        joinGroupBtn.setBorder(BorderFactory.createEmptyBorder());
-        joinGroupBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        joinGroupBtn.addActionListener(e -> showJoinGroupDialog());
-        navPane.add(joinGroupBtn);
+        nav.add(addFriendBtn);
+
+        btnY += 40;
+        JButton addGroupBtn = createNavButton("+群聊");
+        addGroupBtn.setBounds(5, btnY, 50, 30);
+        addGroupBtn.addActionListener(e -> showJoinGroupDialog());
+        nav.add(addGroupBtn);
+
+        btnY += 40;
+        JButton settingBtn = createNavButton("设置");
+        settingBtn.setBounds(5, btnY, 50, 30);
+        settingBtn.addActionListener(e -> JOptionPane.showMessageDialog(this, "设置功能开发中"));
+        nav.add(settingBtn);
+
+        return nav;
     }
 
-    private void initChatPanel() {
-        chatPanel = new JPanel(null);
-        chatPanel.setBounds(0, 0, frameWidth - LEFT_WIDTH, frameHeight);
-        chatPanel.setBackground(new Color(244, 244, 244));
+    private JButton createNavButton(String text) {
+        JButton btn = new JButton(text);
+        btn.setFont(new Font("微软雅黑", Font.PLAIN, 10));
+        btn.setForeground(Color.WHITE);
+        btn.setBackground(new Color(70, 76, 90));
+        btn.setBorder(BorderFactory.createEmptyBorder());
+        btn.setFocusPainted(false);
+        btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btn.setContentAreaFilled(false);
+        btn.setOpaque(true);
+        btn.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) { btn.setBackground(new Color(100, 106, 120)); }
+            public void mouseExited(MouseEvent e) { btn.setBackground(new Color(70, 76, 90)); }
+        });
+        return btn;
+    }
+
+    private JPanel createChatPanel() {
+        JPanel chat = new JPanel(null);
+        int chatWidth = frameWidth - NAV_WIDTH - LIST_WIDTH;
+        chat.setPreferredSize(new Dimension(chatWidth, frameHeight));
+        chat.setBackground(Constants.COLOR_CHAT_BG);
 
         // 标题栏
-        JPanel titlePanel = new JPanel(new BorderLayout());
-        titlePanel.setBounds(0, 0, frameWidth - LEFT_WIDTH, 60);
-        titlePanel.setBackground(new Color(79, 183, 245));
-        titlePanel.setBorder(BorderFactory.createEmptyBorder(0, 15, 0, 15));
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBounds(0, 0, chatWidth, CHAT_HEADER_HEIGHT);
+        header.setBackground(Constants.COLOR_PRIMARY);
+        header.setBorder(BorderFactory.createEmptyBorder(0, 15, 0, 15));
 
-        chatTitle = new JLabel("请选择聊天对象");
-        chatTitle.setFont(new Font("微软雅黑", Font.BOLD, 16));
-        chatTitle.setForeground(Color.WHITE);
+        chatTitleLabel = new JLabel("QChat");
+        chatTitleLabel.setFont(new Font("微软雅黑", Font.BOLD, 18));
+        chatTitleLabel.setForeground(Color.WHITE);
+        header.add(chatTitleLabel, BorderLayout.WEST);
 
-        statusLabel = new JLabel("");
-        statusLabel.setFont(new Font("微软雅黑", Font.PLAIN, 12));
-        statusLabel.setForeground(new Color(200, 255, 200));
+        chatStatusLabel = new JLabel("");
+        chatStatusLabel.setFont(new Font("微软雅黑", Font.PLAIN, 12));
+        chatStatusLabel.setForeground(new Color(220, 240, 255));
+        header.add(chatStatusLabel, BorderLayout.EAST);
+        chat.add(header);
 
-        titlePanel.add(chatTitle, BorderLayout.WEST);
-        titlePanel.add(statusLabel, BorderLayout.EAST);
-        chatPanel.add(titlePanel);
-
-        // 消息显示区（高度自动扩展以填满上方空间）
-        int chatScrollerHeight = frameHeight - 60 - 35 - 120; // 减去顶部标题栏、工具栏、输入区的高度
+        // 消息显示区
         messageDisplayPanel = new JPanel();
         messageDisplayPanel.setLayout(new BoxLayout(messageDisplayPanel, BoxLayout.Y_AXIS));
-        messageDisplayPanel.setBackground(new Color(248, 248, 248));
+        messageDisplayPanel.setBackground(new Color(245, 245, 245));
         messageDisplayPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        chatScroller = new JScrollPane(messageDisplayPanel);
-        chatScroller.setBounds(0, 60, frameWidth - LEFT_WIDTH, chatScrollerHeight);
-        chatScroller.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
-        chatScroller.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        chatScroller.getVerticalScrollBar().setUnitIncrement(20);
-        chatScroller.setBorder(BorderFactory.createEmptyBorder());
-        SmoothScroll.enable(chatScroller);
-        chatPanel.add(chatScroller);
+        chatScrollPane = new JScrollPane(messageDisplayPanel);
+        chatScrollPane.setBounds(0, CHAT_HEADER_HEIGHT, chatWidth,
+                frameHeight - CHAT_HEADER_HEIGHT - TOOLBAR_HEIGHT - INPUT_HEIGHT);
+        chatScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        chatScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        chatScrollPane.getVerticalScrollBar().setUnitIncrement(20);
+        chatScrollPane.setBorder(BorderFactory.createEmptyBorder());
+        chat.add(chatScrollPane);
 
-        // 工具栏（固定在底部输入区上方）
-        JPanel toolBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 5));
-        toolBar.setBounds(0, frameHeight - 120 - 35, frameWidth - LEFT_WIDTH, 35);
-        toolBar.setBackground(new Color(244, 244, 244));
-        toolBar.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(200, 200, 200)));
+        // 工具栏
+        int toolbarY = frameHeight - TOOLBAR_HEIGHT - INPUT_HEIGHT;
+        JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        toolbar.setBounds(0, toolbarY, chatWidth, TOOLBAR_HEIGHT);
+        toolbar.setBackground(new Color(245, 245, 245));
+        toolbar.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(210, 210, 210)));
 
-        sendImageButton = new JButton("图片");
-        sendImageButton.setFont(new Font("微软雅黑", Font.PLAIN, 11));
-        sendImageButton.setFocusPainted(false);
-        sendImageButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        sendImageButton.addActionListener(e -> sendImage());
-        toolBar.add(sendImageButton);
+        addToolButton(toolbar, "表情", e -> {});
+        addToolButton(toolbar, "截图", e -> {});
+        JButton imgBtn = addToolButton(toolbar, "图片", e -> sendImage());
+        JButton fileBtn = addToolButton(toolbar, "文件", e -> sendFile());
+        chat.add(toolbar);
 
-        sendFileButton = new JButton("文件");
-        sendFileButton.setFont(new Font("微软雅黑", Font.PLAIN, 11));
-        sendFileButton.setFocusPainted(false);
-        sendFileButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        sendFileButton.addActionListener(e -> sendFile());
-        toolBar.add(sendFileButton);
-
-        chatPanel.add(toolBar);
-
-        // 输入框（固定在底部）
-        inputArea = new JTextArea(3, 1);
-        inputArea.setFont(new Font("微软雅黑", Font.PLAIN, 13));
+        // 输入区域
+        inputArea = new JTextArea();
+        inputArea.setFont(new Font("微软雅黑", Font.PLAIN, 14));
         inputArea.setLineWrap(true);
         inputArea.setWrapStyleWord(true);
-        inputArea.setBorder(BorderFactory.createLineBorder(new Color(200, 200, 200)));
-
+        inputArea.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
         JScrollPane inputScroll = new JScrollPane(inputArea);
-        inputScroll.setBounds(0, frameHeight - 120, frameWidth - LEFT_WIDTH - 100, 120);
+        inputScroll.setBounds(0, frameHeight - INPUT_HEIGHT, chatWidth - SEND_BTN_WIDTH, INPUT_HEIGHT);
         inputScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        chatPanel.add(inputScroll);
+        chat.add(inputScroll);
 
-        // 发送按钮（固定在底部）
-        sendButton = new JButton("发送");
-        sendButton.setFont(new Font("微软雅黑", Font.PLAIN, 13));
-        sendButton.setBounds(frameWidth - LEFT_WIDTH - 90, frameHeight - 120, 80, 120);
-        sendButton.setBackground(Constants.COLOR_SENDER);
-        sendButton.setForeground(Color.WHITE);
-        sendButton.setFocusPainted(false);
-        sendButton.setBorder(BorderFactory.createEmptyBorder());
-        sendButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        sendButton.addActionListener(e -> sendMessage());
-        chatPanel.add(sendButton);
+        // 发送按钮
+        sendBtn = new JButton("发送");
+        sendBtn.setFont(new Font("微软雅黑", Font.BOLD, 14));
+        sendBtn.setBounds(chatWidth - SEND_BTN_WIDTH, frameHeight - INPUT_HEIGHT, SEND_BTN_WIDTH, INPUT_HEIGHT);
+        sendBtn.setBackground(Constants.COLOR_PRIMARY);
+        sendBtn.setForeground(Color.WHITE);
+        sendBtn.setFocusPainted(false);
+        sendBtn.setBorder(BorderFactory.createEmptyBorder());
+        sendBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        sendBtn.addActionListener(e -> sendMessage());
+        chat.add(sendBtn);
+
+        return chat;
     }
 
-    private void loadData() {
-        // 加载好友列表
-        //测试
-        User test = chatService.getUserById(1);
-        System.out.println("test user: " + test);
+    private JButton addToolButton(JPanel toolbar, String text, ActionListener action) {
+        JButton btn = new JButton(text);
+        btn.setFont(new Font("微软雅黑", Font.PLAIN, 12));
+        btn.setFocusPainted(false);
+        btn.setBackground(Color.WHITE);
+        btn.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(180, 180, 180), 1),
+                BorderFactory.createEmptyBorder(3, 10, 3, 10)
+        ));
+        btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btn.addActionListener(action);
+        toolbar.add(btn);
+        return btn;
+    }
+
+    // ------------------ 数据加载 ------------------
+    protected void loadData() {
         try {
             contacts.clear();
             List<User> friends = chatService.getFriendList(currentUser.getUserId());
             contacts.addAll(friends);
-            if (contactListPane != null) {
-                contactListPane.updateContacts(contacts);
+            // 初始化未读计数
+            for (User f : friends) {
+                unreadCountMap.putIfAbsent(f.getUserId(), 0);
             }
+            contactListPane.updateContacts(contacts);
         } catch (Exception e) {
             e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "加载好友列表失败，请检查数据库连接！", "错误", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "加载好友列表失败");
         }
 
-        // 加载群组列表
         try {
             groups.clear();
-            List<Group> userGroups = chatService.getUserGroups(currentUser.getUserId());
-            groups.addAll(userGroups);
-            if (groupListPane != null) {
-                groupListPane.updateGroups(groups);
-            }
+            List<Group> gs = chatService.getUserGroups(currentUser.getUserId());
+            groups.addAll(gs);
+            groupListPane.updateGroups(groups);
         } catch (Exception e) {
             e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "加载群聊列表失败，请检查数据库连接！", "错误", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "加载群聊列表失败");
         }
     }
 
+    // ------------------ 切换聊天 ------------------
     private void switchChat(User user) {
-        if (user == null) return;
-
         currentChatUser = user;
         currentGroup = null;
-        chatTitle.setText(currentChatUser.getUsername());
-
-        String status = currentChatUser.getStatus();
-        if ("online".equals(status)) {
-            statusLabel.setText("在线 ●");
-            statusLabel.setForeground(new Color(52, 211, 153));
+        chatTitleLabel.setText(user.getUsername());
+        if ("online".equals(user.getStatus())) {
+            chatStatusLabel.setText("在线 ●");
+            chatStatusLabel.setForeground(new Color(52, 211, 153));
         } else {
-            statusLabel.setText("离线");
-            statusLabel.setForeground(new Color(160, 160, 160));
+            chatStatusLabel.setText("离线");
+            chatStatusLabel.setForeground(new Color(180, 180, 180));
         }
-
+        // 清除该好友未读
+        unreadCountMap.put(user.getUserId(), 0);
+        contactListPane.updateContacts(contacts); // 刷新红点
         displayMessages();
-
-        SwingUtilities.invokeLater(() -> {
-            JScrollBar verticalBar = chatScroller.getVerticalScrollBar();
-            verticalBar.setValue(verticalBar.getMaximum());
-        });
+        scrollToBottom();
     }
 
     private void switchGroup(Group group) {
-        if (group == null) return;
-
         currentGroup = group;
         currentChatUser = null;
-        chatTitle.setText(group.getGroupName() + " (" + group.getMemberCount() + "人)");
-        statusLabel.setText("");
-
+        chatTitleLabel.setText(group.getGroupName() + " (" + group.getMemberCount() + ")");
+        chatStatusLabel.setText("");
         displayGroupMessages();
-
-        SwingUtilities.invokeLater(() -> {
-            JScrollBar verticalBar = chatScroller.getVerticalScrollBar();
-            verticalBar.setValue(verticalBar.getMaximum());
-        });
+        scrollToBottom();
     }
 
     private void displayMessages() {
         messageDisplayPanel.removeAll();
-
         if (currentChatUser == null) {
             messageDisplayPanel.revalidate();
             messageDisplayPanel.repaint();
             return;
         }
-
-        List<Message> messages = chatService.getChatHistory(
-                currentUser.getUserId(),
-                currentChatUser.getUserId()
-        );
-
-        for (Message msg : messages) {
-            User sender = msg.getSenderId() == currentUser.getUserId()
-                    ? currentUser : currentChatUser;
-            boolean isSender = msg.getSenderId() == currentUser.getUserId();
-
-            if ("file".equals(msg.getMessageType())) {
-                // 显示文件消息
-                addFileMessageDisplay(sender, msg.getContent(), msg.getMessageType(), isSender, msg.getMessageId());
-            } else if ("image".equals(msg.getMessageType())) {
-                // 显示图片消息
-                addImageMessageDisplay(sender, msg.getContent(), isSender, msg.getMessageId());
-            } else {
-                // 显示文本消息
-                MessageDisplay display = new MessageDisplay(
-                        sender,
-                        msg.isDeleted() ? "" : msg.getContent(),
-                        isSender,
-                        msg.getCreatedAt(),
-                        msg.getMessageId()
-                );
-
-                if (msg.isDeleted()) {
-                    display.setDeleted(true);
-                }
-
-                display.setOnRecallCallback(messageId -> {
-                    boolean success = chatService.recallMessage(messageId, currentUser.getUserId());
-                    if (success) {
-                        displayMessages();
-                    }
-                });
-
-                display.setAlignmentX(Component.CENTER_ALIGNMENT);
-                display.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
-                display.setMaxMessageWidth(Constants.MESSAGE_MAX_WIDTH);
-
-                messageDisplayPanel.add(display);
-                messageDisplayPanel.add(Box.createVerticalStrut(8));
-            }
+        List<Message> msgs = chatService.getChatHistory(currentUser.getUserId(), currentChatUser.getUserId());
+        for (Message msg : msgs) {
+            addMessageToDisplay(msg, msg.getSenderId() == currentUser.getUserId());
         }
-
         messageDisplayPanel.revalidate();
         messageDisplayPanel.repaint();
     }
 
     private void displayGroupMessages() {
         messageDisplayPanel.removeAll();
-
-        if (currentGroup == null) {
-            messageDisplayPanel.revalidate();
-            messageDisplayPanel.repaint();
-            return;
+        if (currentGroup == null) { refreshMessagePanel(); return; }
+        List<Message> msgs = chatService.getGroupMessages(currentGroup.getGroupId());
+        for (Message msg : msgs) {
+            boolean isMe = msg.getSenderId() == currentUser.getUserId();
+            addMessageToDisplay(msg, isMe);
         }
+        refreshMessagePanel();
+    }
 
-        List<Message> messages = chatService.getGroupMessages(currentGroup.getGroupId());
+    private void addMessageToDisplay(Message msg, boolean isSender) {
+        User sender = isSender ? currentUser : chatService.getUserById(msg.getSenderId());
+        if (sender == null) sender = currentUser;
 
-        for (Message msg : messages) {
-            User sender = chatService.getUserById(msg.getSenderId());
-            if (sender == null) continue;
+        MessageBubblePanel bubble = new MessageBubblePanel(sender, msg, isSender);
+        bubble.setAlignmentX(Component.LEFT_ALIGNMENT);
+        bubble.setOpaque(false);
 
-            boolean isSender = msg.getSenderId() == currentUser.getUserId();
+        // 计算聊天区可视宽度
+        int chatWidth = chatScrollPane.getViewport().getWidth();
+        // 预留左右边距、头像宽度、气泡内边距等
+        int maxBubbleWidth = chatWidth - 80;  // 80 = 头像40 + 边距40
 
-            if ("file".equals(msg.getMessageType())) {
-                addFileMessageDisplay(sender, msg.getContent(), msg.getMessageType(), isSender, msg.getMessageId());
-            } else if ("image".equals(msg.getMessageType())) {
-                addImageMessageDisplay(sender, msg.getContent(), isSender, msg.getMessageId());
-            } else {
-                MessageDisplay display = new MessageDisplay(
-                        sender,
-                        msg.isDeleted() ? "" : msg.getContent(),
-                        isSender,
-                        msg.getCreatedAt(),
-                        msg.getMessageId()
-                );
+        bubble.setMaximumSize(new Dimension(maxBubbleWidth, 2000));
+        bubble.setPreferredSize(new Dimension(maxBubbleWidth, bubble.getPreferredSize().height));
 
-                if (msg.isDeleted()) {
-                    display.setDeleted(true);
+        // 设置撤回回调等
+        if (isSender && msg.getMessageId() > 0) {
+            bubble.setOnRecallCallback(id -> {
+                if (currentChatUser != null) {
+                    chatClient.recallMessage(currentUser.getUserId(), id,
+                            currentChatUser.getUserId(), null);
+                } else if (currentGroup != null) {
+                    chatClient.recallMessage(currentUser.getUserId(), id,
+                            0, currentGroup.getGroupId());
                 }
-
-                display.setOnRecallCallback(messageId -> {
-                    boolean success = chatService.recallGroupMessage(messageId, currentUser.getUserId());
-                    if (success) {
-                        displayGroupMessages();
-                    }
-                });
-
-                display.setAlignmentX(Component.CENTER_ALIGNMENT);
-                display.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
-                display.setMaxMessageWidth(Constants.MESSAGE_MAX_WIDTH);
-
-                messageDisplayPanel.add(display);
-                messageDisplayPanel.add(Box.createVerticalStrut(8));
-            }
+                displayMessages();
+            });
         }
 
+        messageDisplayPanel.add(bubble);
+    }
+
+    private void refreshMessagePanel() {
         messageDisplayPanel.revalidate();
         messageDisplayPanel.repaint();
     }
 
-    private void addFileMessageDisplay(User sender, String filePath, String fileType, boolean isSender, long messageId) {
-        JPanel filePanel = new JPanel(new FlowLayout(isSender ? FlowLayout.RIGHT : FlowLayout.LEFT));
-        filePanel.setOpaque(false);
-        filePanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 80));
-
-        JButton fileButton = new JButton("📁 " + new File(filePath).getName());
-        fileButton.setFont(new Font("微软雅黑", Font.PLAIN, 12));
-        fileButton.setBackground(new Color(79, 183, 245));
-        fileButton.setForeground(Color.WHITE);
-        fileButton.setFocusPainted(false);
-        fileButton.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
-        fileButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        fileButton.addActionListener(e -> FileUtil.openFile(filePath));
-
-        filePanel.add(fileButton);
-        messageDisplayPanel.add(filePanel);
+    private void scrollToBottom() {
+        SwingUtilities.invokeLater(() -> {
+            JScrollBar bar = chatScrollPane.getVerticalScrollBar();
+            bar.setValue(bar.getMaximum());
+        });
     }
 
-    private void addImageMessageDisplay(User sender, String imagePath, boolean isSender, long messageId) {
-        try {
-            JPanel imagePanel = new JPanel() {
-                @Override
-                protected void paintComponent(Graphics g) {
-                    super.paintComponent(g);
-                    try {
-                        java.awt.image.BufferedImage image = javax.imageio.ImageIO.read(new File(imagePath));
-                        if (image != null) {
-                            int maxWidth = 300;
-                            int maxHeight = 300;
-                            int width = image.getWidth();
-                            int height = image.getHeight();
-
-                            if (width > maxWidth || height > maxHeight) {
-                                double scale = Math.min((double) maxWidth / width, (double) maxHeight / height);
-                                width = (int) (width * scale);
-                                height = (int) (height * scale);
-                            }
-
-                            Image scaledImage = image.getScaledInstance(width, height, Image.SCALE_SMOOTH);
-                            g.drawImage(scaledImage, 10, 10, null);
-                        }
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
-            };
-            imagePanel.setPreferredSize(new Dimension(320, 320));
-            imagePanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 320));
-            imagePanel.setOpaque(false);
-            messageDisplayPanel.add(imagePanel);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
+    // ------------------ 消息发送 ------------------
     private void sendMessage() {
         String text = inputArea.getText().trim();
-
-        if (text.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "请输入内容");
-            return;
-        }
+        if (text.isEmpty()) return;
 
         if (currentChatUser != null) {
-            chatClient.sendPrivateMessage(
-                    currentUser.getUserId(),
-                    currentUser.getUsername(),
-                    currentChatUser.getUserId(),
-                    text
-            );
+            // 立即创建临时消息并显示
+            Message tempMsg = new Message(currentUser.getUserId(), currentChatUser.getUserId(), text);
+            tempMsg.setMessageId(-1L);
+            addMessageToDisplay(tempMsg, true);
+
+            // ★ 强制刷新面板布局，使滚动条最大值更新（否则发送消息需要滑动滚动条才能显示）
+            messageDisplayPanel.revalidate();
+            messageDisplayPanel.repaint();
+            scrollToBottom();   // 发送消息可以立即显示
+
+            // 异步发送给服务器
+            chatClient.sendPrivateMessage(currentUser.getUserId(), currentUser.getUsername(),
+                    currentChatUser.getUserId(), text);
         } else if (currentGroup != null) {
-            chatClient.sendGroupMessage(
-                    currentUser.getUserId(),
-                    currentUser.getUsername(),
-                    currentGroup.getGroupId(),
-                    text
-            );
+            Message tempMsg = new Message(currentUser.getUserId(),
+                    currentGroup.getGroupId(), text, System.currentTimeMillis());
+            tempMsg.setMessageId(-1L);
+            addMessageToDisplay(tempMsg, true);
+            messageDisplayPanel.revalidate();
+            messageDisplayPanel.repaint();
+            scrollToBottom();
+
+            chatClient.sendGroupMessage(currentUser.getUserId(), currentUser.getUsername(),
+                    currentGroup.getGroupId(), text);
         } else {
-            JOptionPane.showMessageDialog(this, "请先选择聊天对象");
+            JOptionPane.showMessageDialog(this, "请选择聊天对象");
             return;
         }
-
         inputArea.setText("");
     }
 
     private void sendImage() {
-        if (currentChatUser == null && currentGroup == null) {
-            JOptionPane.showMessageDialog(this, "请先选择聊天对象");
-            return;
-        }
-
         File imageFile = FileTransferDialog.selectImageToSend(this);
         if (imageFile == null) return;
-
         try {
-            byte[] imageData = FileService.uploadFile(imageFile);
-
+            byte[] data = FileService.uploadFile(imageFile);
             if (currentChatUser != null) {
-                chatClient.sendFile(
-                        currentUser.getUserId(),
-                        currentUser.getUsername(),
-                        currentChatUser.getUserId(),
-                        null,
-                        imageFile.getName(),
-                        imageData
-                );
-            } else {
-                chatClient.sendFile(
-                        currentUser.getUserId(),
-                        currentUser.getUsername(),
-                        0,
-                        currentGroup.getGroupId(),
-                        imageFile.getName(),
-                        imageData
-                );
+                chatClient.sendFile(currentUser.getUserId(), currentUser.getUsername(),
+                        currentChatUser.getUserId(), null, imageFile.getName(), data);
+            } else if (currentGroup != null) {
+                chatClient.sendFile(currentUser.getUserId(), currentUser.getUsername(),
+                        0, currentGroup.getGroupId(), imageFile.getName(), data);
             }
-
-            JOptionPane.showMessageDialog(this, "图片发送中...");
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "发送图片失败: " + e.getMessage());
+            JOptionPane.showMessageDialog(this, "发送图片失败");
         }
     }
 
     private void sendFile() {
-        if (currentChatUser == null && currentGroup == null) {
-            JOptionPane.showMessageDialog(this, "请先选择聊天对象");
-            return;
-        }
-
         File file = FileTransferDialog.selectFileToSend(this);
         if (file == null) return;
-
         try {
-            byte[] fileData = FileService.uploadFile(file);
-
+            byte[] data = FileService.uploadFile(file);
             if (currentChatUser != null) {
-                chatClient.sendFile(
-                        currentUser.getUserId(),
-                        currentUser.getUsername(),
-                        currentChatUser.getUserId(),
-                        null,
-                        file.getName(),
-                        fileData
-                );
-            } else {
-                chatClient.sendFile(
-                        currentUser.getUserId(),
-                        currentUser.getUsername(),
-                        0,
-                        currentGroup.getGroupId(),
-                        file.getName(),
-                        fileData
-                );
+                chatClient.sendFile(currentUser.getUserId(), currentUser.getUsername(),
+                        currentChatUser.getUserId(), null, file.getName(), data);
+            } else if (currentGroup != null) {
+                chatClient.sendFile(currentUser.getUserId(), currentUser.getUsername(),
+                        0, currentGroup.getGroupId(), file.getName(), data);
             }
-
-            JOptionPane.showMessageDialog(this, "文件发送中...");
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "发送文件失败: " + e.getMessage());
+            JOptionPane.showMessageDialog(this, "发送文件失败");
         }
     }
 
-    private void startHeartbeat() {
-        heartbeatTimer = new Timer();
-        heartbeatTimer.scheduleAtFixedRate(new TimerTask() {
-            @Override
-            public void run() {
-                if (chatClient.isConnected()) {
-                    chatClient.sendHeartbeat();
-                }
+    // ------------------ 添加好友/群聊对话框 ------------------
+    private void showAddFriendDialog() {
+        String input = JOptionPane.showInputDialog(this, "输入好友的用户ID：");
+        if (input == null || input.trim().isEmpty()) return;
+        try {
+            int friendId = Integer.parseInt(input.trim());
+            if (friendId == currentUser.getUserId()) { JOptionPane.showMessageDialog(this, "不能添加自己"); return; }
+            if (chatService.isFriend(currentUser.getUserId(), friendId)) {
+                JOptionPane.showMessageDialog(this, "已是好友"); return;
             }
-        }, 30000, 30000); // 每30秒发送一次心跳
-    }
-
-    private void logout() {
-        if (heartbeatTimer != null) {
-            heartbeatTimer.cancel();
+            boolean ok = chatService.addFriend(currentUser.getUserId(), friendId);
+            if (ok) {
+                JOptionPane.showMessageDialog(this, "添加成功");
+                loadData();
+            } else JOptionPane.showMessageDialog(this, "添加失败");
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "无效ID");
         }
-        chatService.updateUserOnlineStatus(currentUser.getUserId(), false);
-        chatClient.disconnect();
-        System.exit(0);
     }
 
+    private void showJoinGroupDialog() {
+        String input = JOptionPane.showInputDialog(this, "输入群聊ID：");
+        if (input == null || input.trim().isEmpty()) return;
+        try {
+            int gid = Integer.parseInt(input.trim());
+            Group g = chatService.getGroupInfo(gid);
+            if (g == null) { JOptionPane.showMessageDialog(this, "群不存在"); return; }
+            if (chatService.isGroupMember(gid, currentUser.getUserId())) {
+                JOptionPane.showMessageDialog(this, "已在群中"); return;
+            }
+            boolean ok = chatService.addGroupMember(gid, currentUser.getUserId());
+            if (ok) {
+                JOptionPane.showMessageDialog(this, "加入成功");
+                loadData();
+            } else JOptionPane.showMessageDialog(this, "加入失败");
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "无效ID");
+        }
+    }
+
+    // ------------------ 未读消息处理 ------------------
+    public void incrementUnread(int userId) {
+        unreadCountMap.merge(userId, 1, Integer::sum);
+        contactListPane.updateUnreadCount(userId, unreadCountMap.getOrDefault(userId, 0));
+    }
+
+    public void clearUnread(int userId) {
+        unreadCountMap.put(userId, 0);
+        contactListPane.updateUnreadCount(userId, 0);
+    }
+
+    // ------------------ 服务器消息回调 ------------------
     @Override
     public void onMessageReceived(ChatMessage message) {
         SwingUtilities.invokeLater(() -> {
             switch (message.getType()) {
                 case ChatMessage.TYPE_MESSAGE:
-                    handlePrivateMessage(message);
+                    handlePrivateMsg(message);
                     break;
                 case ChatMessage.TYPE_GROUP_MESSAGE:
-                    handleGroupMessage(message);
+                    handleGroupMsg(message);
                     break;
                 case ChatMessage.TYPE_FILE:
-                    handleFileMessage(message);
+                    handleFileMsg(message);
                     break;
                 case ChatMessage.TYPE_MESSAGE_RECALL:
-                    handleRecall(message);
+                    handleRecallMsg(message);
                     break;
             }
         });
     }
 
-    private void handlePrivateMessage(ChatMessage message) {
-        int fromUserId = message.getFromUserId();
-        if (currentChatUser != null && currentChatUser.getUserId() == fromUserId) {
+    private void handlePrivateMsg(ChatMessage msg) {
+        int from = msg.getFromUserId();
+        int to = msg.getToUserId();
+        // 如果当前聊天对象是发送者或接收者，刷新
+        if (currentChatUser != null && (currentChatUser.getUserId() == from || currentChatUser.getUserId() == to)) {
             displayMessages();
-            JScrollBar verticalBar = chatScroller.getVerticalScrollBar();
-            verticalBar.setValue(verticalBar.getMaximum());
+            scrollToBottom();
+        } else if (currentChatUser == null || currentChatUser.getUserId() != from) {
+            // 未在聊天，增加未读
+            incrementUnread(from);
         }
     }
 
-    private void handleGroupMessage(ChatMessage message) {
-        Integer groupId = message.getGroupId();
-        if (currentGroup != null && currentGroup.getGroupId() == groupId) {
+    private void handleGroupMsg(ChatMessage msg) {
+        if (currentGroup != null && currentGroup.getGroupId() == msg.getGroupId()) {
             displayGroupMessages();
-            JScrollBar verticalBar = chatScroller.getVerticalScrollBar();
-            verticalBar.setValue(verticalBar.getMaximum());
+            scrollToBottom();
         }
     }
 
-    private void handleFileMessage(ChatMessage message) {
-        int fromUserId = message.getFromUserId();
-        Integer groupId = message.getGroupId();
-
-        boolean isRelevant = (currentChatUser != null && currentChatUser.getUserId() == fromUserId) ||
-                (currentGroup != null && currentGroup.getGroupId() == groupId);
-
-        if (isRelevant) {
-            String filePath = (String) message.getExtra("filePath");
-            String fileName = message.getFileName();
-            long fileSize = message.getFileSize();
-
-            new FileReceiveDialog(this, fileName, filePath, fileSize);
+    private void handleFileMsg(ChatMessage msg) {
+        // 文件接收已由 FileReceiveDialog 处理，这里只刷新消息
+        if (currentChatUser != null && currentChatUser.getUserId() == msg.getFromUserId()) {
             displayMessages();
         }
     }
-
-    private void handleRecall(ChatMessage message) {
+    //撤回消息处理
+    private void handleRecallMsg(ChatMessage msg) {
         if (currentChatUser != null) {
             displayMessages();
         } else if (currentGroup != null) {
@@ -704,82 +625,22 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
         }
     }
 
-    /**
-     * 添加好友
-     */
-    private void showAddFriendDialog() {
-        String input = JOptionPane.showInputDialog(this, "请输入好友的用户ID：", "添加好友", JOptionPane.QUESTION_MESSAGE);
-        if (input == null || input.trim().isEmpty()) return;
-
-        try {
-            int friendId = Integer.parseInt(input.trim());
-            if (friendId == currentUser.getUserId()) {
-                JOptionPane.showMessageDialog(this, "不能添加自己为好友！");
-                return;
-            }
-            User friend = chatService.getUserById(friendId);
-            if (friend == null) {
-                JOptionPane.showMessageDialog(this, "该用户不存在！");
-                return;
-            }
-            if (chatService.isFriend(currentUser.getUserId(), friendId)) {
-                JOptionPane.showMessageDialog(this, "你们已经是好友了！");
-                return;
-            }
-            boolean success = chatService.sendFriendRequest(currentUser.getUserId(), friendId, "我想加你为好友");
-            if (success) {
-                JOptionPane.showMessageDialog(this, "好友请求已发送！");
-                loadData(); // 刷新列表（其实未接受前列表不变，可选）
-            } else {
-                JOptionPane.showMessageDialog(this, "发送请求失败，请稍后重试！");
-            }
-        } catch (NumberFormatException e) {
-            JOptionPane.showMessageDialog(this, "请输入有效的数字ID！");
-        }
+    // ------------------ 工具方法 ------------------
+    private void startHeartbeat() {
+        heartbeatTimer = new Timer();
+        heartbeatTimer.scheduleAtFixedRate(new TimerTask() {
+            public void run() { if (chatClient.isConnected()) chatClient.sendHeartbeat(); }
+        }, 30000, 30000);
     }
 
-    /**
-     * 添加群聊
-     */
-    private void showJoinGroupDialog() {
-        String input = JOptionPane.showInputDialog(this, "请输入群聊ID：", "加入群聊", JOptionPane.QUESTION_MESSAGE);
-        if (input == null || input.trim().isEmpty()) return;
-
-        try {
-            int groupId = Integer.parseInt(input.trim());
-            Group group = chatService.getGroupInfo(groupId);
-            if (group == null) {
-                JOptionPane.showMessageDialog(this, "该群聊不存在！");
-                return;
-            }
-            if (chatService.isGroupMember(groupId, currentUser.getUserId())) {
-                JOptionPane.showMessageDialog(this, "你已经在群中！");
-                return;
-            }
-            boolean success = chatService.addGroupMember(groupId, currentUser.getUserId());
-            if (success) {
-                JOptionPane.showMessageDialog(this, "成功加入群聊：" + group.getGroupName());
-                loadData(); // 刷新群聊列表
-            } else {
-                JOptionPane.showMessageDialog(this, "加入群聊失败，请稍后重试！");
-            }
-        } catch (NumberFormatException e) {
-            JOptionPane.showMessageDialog(this, "请输入有效的数字ID！");
-        }
+    private void logout() {
+        if (heartbeatTimer != null) heartbeatTimer.cancel();
+        chatService.updateUserOnlineStatus(currentUser.getUserId(), false);
+        chatClient.disconnect();
+        System.exit(0);
     }
 
-    @Override
-    public void onConnected() {
-        System.out.println("已连接到服务器");
-    }
-
-    @Override
-    public void onDisconnected() {
-        JOptionPane.showMessageDialog(this, "已断开与服务器的连接");
-    }
-
-    @Override
-    public void onError(String error) {
-        System.err.println("错误: " + error);
-    }
+    @Override public void onConnected() { System.out.println("已连接"); }
+    @Override public void onDisconnected() { JOptionPane.showMessageDialog(this, "断开连接"); }
+    @Override public void onError(String err) { System.err.println(err); }
 }

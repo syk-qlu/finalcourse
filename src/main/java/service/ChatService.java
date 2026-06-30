@@ -234,4 +234,18 @@ public class ChatService {
     public User getUserById(int userId) {
         return userDAO.getUserById(userId);
     }
+
+    /**
+     * 直接添加双向好友（跳过请求步骤）
+     */
+    public boolean addFriend(int userId1, int userId2) {
+        return friendshipDAO.addFriend(userId1, userId2);
+    }
+
+    /**
+     * 获取两个用户间最后一条消息的预览文本
+     */
+    public String getLastMessagePreview(int userId1, int userId2) {
+        return messageDAO.getLastMessageContent(userId1, userId2);
+    }
 }
