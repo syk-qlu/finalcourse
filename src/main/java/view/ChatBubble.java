@@ -199,6 +199,14 @@ public class ChatBubble extends JPanel {
         this.showShadow = showShadow;
         repaint();
     }
+
+    // 设置圆角大小
+    public void setArcSize(int arcSize) {
+        this.arcSize = arcSize;
+        repaint();
+    }
+
+
 }
 
 

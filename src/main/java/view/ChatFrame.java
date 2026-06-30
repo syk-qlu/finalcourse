@@ -407,18 +407,26 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
         if (sender == null) sender = currentUser;
 
         MessageBubblePanel bubble = new MessageBubblePanel(sender, msg, isSender);
-        bubble.setAlignmentX(Component.LEFT_ALIGNMENT);
         bubble.setOpaque(false);
 
-        // 计算聊天区可视宽度
+        // 获取聊天区可视宽度
         int chatWidth = chatScrollPane.getViewport().getWidth();
-        // 预留左右边距、头像宽度、气泡内边距等
-        int maxBubbleWidth = chatWidth - 80;  // 80 = 头像40 + 边距40
+        if (chatWidth <= 0) chatWidth = 600;
 
-        bubble.setMaximumSize(new Dimension(maxBubbleWidth, 2000));
-        bubble.setPreferredSize(new Dimension(maxBubbleWidth, bubble.getPreferredSize().height));
+        // 文本最大宽度限制
+        int maxTextWidth = chatWidth - 110;
+        bubble.setMessageMaxWidth(maxTextWidth);
 
-        // 设置撤回回调等
+        // ★ 关键：让组件宽度 = 气泡实际宽度，而不是聊天区全宽
+        Dimension prefSize = bubble.getPreferredSize();
+        bubble.setMaximumSize(new Dimension(prefSize.width, prefSize.height + 10));
+        bubble.setPreferredSize(new Dimension(prefSize.width, prefSize.height + 10));
+        bubble.setMinimumSize(new Dimension(prefSize.width, prefSize.height + 10));
+
+        // 水平对齐
+        bubble.setAlignmentX(isSender ? Component.RIGHT_ALIGNMENT : Component.LEFT_ALIGNMENT);
+
+        // 撤回回调（仅正式消息）
         if (isSender && msg.getMessageId() > 0) {
             bubble.setOnRecallCallback(id -> {
                 if (currentChatUser != null) {
@@ -434,12 +442,12 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
 
         messageDisplayPanel.add(bubble);
     }
-
+    //刷新消息面板
     private void refreshMessagePanel() {
         messageDisplayPanel.revalidate();
         messageDisplayPanel.repaint();
     }
-
+    //新增消息后，滚动面板自动滑到底部
     private void scrollToBottom() {
         SwingUtilities.invokeLater(() -> {
             JScrollBar bar = chatScrollPane.getVerticalScrollBar();
@@ -453,17 +461,13 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
         if (text.isEmpty()) return;
 
         if (currentChatUser != null) {
-            // 立即创建临时消息并显示
             Message tempMsg = new Message(currentUser.getUserId(), currentChatUser.getUserId(), text);
             tempMsg.setMessageId(-1L);
             addMessageToDisplay(tempMsg, true);
 
-            // ★ 强制刷新面板布局，使滚动条最大值更新（否则发送消息需要滑动滚动条才能显示）
             messageDisplayPanel.revalidate();
-            messageDisplayPanel.repaint();
-            scrollToBottom();   // 发送消息可以立即显示
+            scrollToBottom();
 
-            // 异步发送给服务器
             chatClient.sendPrivateMessage(currentUser.getUserId(), currentUser.getUsername(),
                     currentChatUser.getUserId(), text);
         } else if (currentGroup != null) {
@@ -472,7 +476,6 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
             tempMsg.setMessageId(-1L);
             addMessageToDisplay(tempMsg, true);
             messageDisplayPanel.revalidate();
-            messageDisplayPanel.repaint();
             scrollToBottom();
 
             chatClient.sendGroupMessage(currentUser.getUserId(), currentUser.getUsername(),
@@ -518,7 +521,7 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
         }
     }
 
-    // ------------------ 添加好友/群聊对话框 ------------------
+    //添加好友/群聊对话框
     private void showAddFriendDialog() {
         String input = JOptionPane.showInputDialog(this, "输入好友的用户ID：");
         if (input == null || input.trim().isEmpty()) return;
@@ -537,7 +540,7 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
             JOptionPane.showMessageDialog(this, "无效ID");
         }
     }
-
+    //显示加入群聊情况
     private void showJoinGroupDialog() {
         String input = JOptionPane.showInputDialog(this, "输入群聊ID：");
         if (input == null || input.trim().isEmpty()) return;
