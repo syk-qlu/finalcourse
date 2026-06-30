@@ -19,7 +19,7 @@ public class ChatBubble extends JPanel {
     private int arcSize = 15;
     private int padding = 12;
     private int tailSize = 10;  // 尖角大小
-    private boolean showTail = true;  // 是否显示尖角
+    private boolean showTail = false;  // 是否显示尖角
     private boolean showShadow = true;  // 是否显示阴影
     private int maxWidth = 300;  // 最大宽度，用于换行
 
@@ -80,6 +80,7 @@ public class ChatBubble extends JPanel {
     }
 
     @Override
+    //绘制消息气泡
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
         Graphics2D g2d = (Graphics2D) g;
@@ -99,11 +100,11 @@ public class ChatBubble extends JPanel {
         int bubbleWidth = maxTextWidth + padding * 2;
         int bubbleHeight = textHeight + padding * 2;
 
-        int x, y;
+        int x, y = 2;
         if (isSender) {
-            x = getWidth() - bubbleWidth - 20 - (showTail ? tailSize : 0);
+            x = getWidth() - bubbleWidth - 2;
         } else {
-            x = 10 + (showTail ? tailSize : 0);
+            x = 2;
         }
         y = 10;
 
@@ -163,7 +164,6 @@ public class ChatBubble extends JPanel {
     public Dimension getPreferredSize() {
         FontMetrics fm = getFontMetrics(getFont());
         String[] lines = wrapText(message, fm);
-
         int lineHeight = fm.getHeight();
         int textHeight = lineHeight * lines.length;
         int maxTextWidth = 0;
@@ -171,10 +171,13 @@ public class ChatBubble extends JPanel {
             maxTextWidth = Math.max(maxTextWidth, fm.stringWidth(line));
         }
 
-        int bubbleWidth = maxTextWidth + padding * 2 + (showTail ? tailSize : 0);
-        int bubbleHeight = textHeight + padding * 2 + 20;
+        int bubbleWidth = maxTextWidth + padding * 2;
+        if (showTail) bubbleWidth += tailSize;
+        bubbleWidth = Math.min(bubbleWidth, maxWidth);
 
-        return new Dimension(bubbleWidth + 30, bubbleHeight);
+        int bubbleHeight = textHeight + padding * 2 + 8;       // 气泡内容高度
+        int totalHeight = 2 + bubbleHeight + 2;                // y起始偏移2 + 内容 + 底部留白2
+        return new Dimension(bubbleWidth, totalHeight);
     }
 
     // Getter和Setter

@@ -82,7 +82,7 @@ public class MessageBubblePanel extends JPanel {
             timeLabel.setHorizontalAlignment(SwingConstants.LEFT);
         }
 
-        // ========== 右键撤回（仅自己的正式消息） ==========
+        //右键撤回（仅自己的正式消息）
         if (isSender && msg.getMessageId() > 0) {
             addMouseListener(new MouseAdapter() {
                 public void mouseClicked(MouseEvent e) {
@@ -101,6 +101,13 @@ public class MessageBubblePanel extends JPanel {
         if (bubble != null) {
             bubble.setMaxWidth(width);
         }
+    }
+    @Override
+    public Dimension getPreferredSize() {
+        Dimension bubbleDim = (bubble != null) ? bubble.getPreferredSize() : new Dimension(0, 0);
+        int avatarWidth = 50;   // 头像区域固定宽度
+        int height = Math.max(bubbleDim.height, 60);
+        return new Dimension(bubbleDim.width + avatarWidth, height);
     }
 }
 

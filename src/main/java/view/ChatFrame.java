@@ -402,6 +402,11 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
         refreshMessagePanel();
     }
 
+    /**
+     * 将消息显示在消息面板中
+     * @param msg
+     * @param isSender
+     */
     private void addMessageToDisplay(Message msg, boolean isSender) {
         User sender = isSender ? currentUser : chatService.getUserById(msg.getSenderId());
         if (sender == null) sender = currentUser;
@@ -409,22 +414,25 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
         MessageBubblePanel bubble = new MessageBubblePanel(sender, msg, isSender);
         bubble.setOpaque(false);
 
-        // 获取聊天区可视宽度
         int chatWidth = chatScrollPane.getViewport().getWidth();
         if (chatWidth <= 0) chatWidth = 600;
-
-        // 文本最大宽度限制
-        int maxTextWidth = chatWidth - 110;
+        int maxTextWidth = chatWidth - 90;
         bubble.setMessageMaxWidth(maxTextWidth);
 
-        // ★ 关键：让组件宽度 = 气泡实际宽度，而不是聊天区全宽
-        Dimension prefSize = bubble.getPreferredSize();
-        bubble.setMaximumSize(new Dimension(prefSize.width, prefSize.height + 10));
-        bubble.setPreferredSize(new Dimension(prefSize.width, prefSize.height + 10));
-        bubble.setMinimumSize(new Dimension(prefSize.width, prefSize.height + 10));
+        // 用 BorderLayout 行进行左右对齐，避免宽度拉伸
+        JPanel row = new JPanel(new BorderLayout());
+        row.setOpaque(false);
+        if (isSender) {
+            row.add(bubble, BorderLayout.EAST);
+        } else {
+            row.add(bubble, BorderLayout.WEST);
+        }
 
-        // 水平对齐
-        bubble.setAlignmentX(isSender ? Component.RIGHT_ALIGNMENT : Component.LEFT_ALIGNMENT);
+        // 让行高度 = 气泡的真实高度，避免裁切
+        Dimension bubbleSize = bubble.getPreferredSize();
+        row.setPreferredSize(new Dimension(1, bubbleSize.height));
+        row.setMinimumSize(new Dimension(1, bubbleSize.height));
+        row.setMaximumSize(new Dimension(Short.MAX_VALUE, bubbleSize.height));
 
         // 撤回回调（仅正式消息）
         if (isSender && msg.getMessageId() > 0) {
@@ -440,7 +448,7 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
             });
         }
 
-        messageDisplayPanel.add(bubble);
+        messageDisplayPanel.add(row);
     }
     //刷新消息面板
     private void refreshMessagePanel() {
