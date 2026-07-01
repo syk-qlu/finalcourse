@@ -70,7 +70,53 @@ public class ContactListPane extends JPanel {
                 if (user.getUserId() == selectedUserId) {
                     item.setSelected(true);
                 }
-                // 设置预览、未读等（原有代码）
+                // ★ 设置最后一条消息预览
+                String preview = chatService.getLastMessagePreview(currentUserId, user.getUserId());
+                item.setLastMessage(preview != null ? preview : "");
+                // ★ 同步未读计数
+                int unread = chatFrame.unreadCountMap.getOrDefault(user.getUserId(), 0);
+                item.setUnreadCount(unread);
+                // ★ 设置删除好友回调
+                item.setOnDeleteCallback(contactItem -> {
+                    int result = JOptionPane.showConfirmDialog(this,
+                            "确定要删除好友 " + contactItem.getUser().getUsername() + " 吗？",
+                            "删除好友", JOptionPane.YES_NO_OPTION);
+                    if (result == JOptionPane.YES_OPTION) {
+                        boolean success = chatService.removeFriend(currentUserId,
+                                contactItem.getUser().getUserId());
+                        if (success) {
+                            contacts.remove(contactItem.getUser());
+                            updateContacts(contacts);
+                            JOptionPane.showMessageDialog(this, "好友已删除");
+                        } else {
+                            JOptionPane.showMessageDialog(this, "删除好友失败");
+                        }
+                    }
+                });
+                // ★ 设置置顶回调
+                item.setOnTopCallback(contactItem -> {
+                    boolean isTopped = chatService.isTopped(currentUserId,
+                            contactItem.getUser().getUserId());
+                    boolean success;
+                    if (isTopped) {
+                        success = chatService.unTopFriend(currentUserId,
+                                contactItem.getUser().getUserId());
+                        if (success) {
+                            JOptionPane.showMessageDialog(this, "已取消置顶");
+                        }
+                    } else {
+                        success = chatService.topFriend(currentUserId,
+                                contactItem.getUser().getUserId());
+                        if (success) {
+                            JOptionPane.showMessageDialog(this, "已置顶");
+                        }
+                    }
+                    if (success) {
+                        // 重新加载好友列表（按置顶排序）
+                        List<User> updatedFriends = chatService.getFriendList(currentUserId);
+                        updateContacts(updatedFriends);
+                    }
+                });
                 listPanel.add(item);
             }
         }
@@ -116,9 +162,53 @@ public class ContactListPane extends JPanel {
         for (User user : contacts) {
             if (keyword.isEmpty() || user.getUsername().contains(keyword)) {
                 ContactItem item = new ContactItem(user, this::selectItem);
+                // 恢复选中状态
+                if (user.getUserId() == selectedUserId) {
+                    item.setSelected(true);
+                }
+                // ★ 同步未读计数
                 int unread = chatFrame.unreadCountMap.getOrDefault(user.getUserId(), 0);
                 item.setUnreadCount(unread);
-                // 预览忽略
+                // ★ 设置删除好友回调
+                item.setOnDeleteCallback(contactItem -> {
+                    int result = JOptionPane.showConfirmDialog(this,
+                            "确定要删除好友 " + contactItem.getUser().getUsername() + " 吗？",
+                            "删除好友", JOptionPane.YES_NO_OPTION);
+                    if (result == JOptionPane.YES_OPTION) {
+                        boolean success = chatService.removeFriend(currentUserId,
+                                contactItem.getUser().getUserId());
+                        if (success) {
+                            contacts.remove(contactItem.getUser());
+                            updateContacts(contacts);
+                            JOptionPane.showMessageDialog(this, "好友已删除");
+                        } else {
+                            JOptionPane.showMessageDialog(this, "删除好友失败");
+                        }
+                    }
+                });
+                // ★ 设置置顶回调
+                item.setOnTopCallback(contactItem -> {
+                    boolean isTopped = chatService.isTopped(currentUserId,
+                            contactItem.getUser().getUserId());
+                    boolean success;
+                    if (isTopped) {
+                        success = chatService.unTopFriend(currentUserId,
+                                contactItem.getUser().getUserId());
+                        if (success) {
+                            JOptionPane.showMessageDialog(this, "已取消置顶");
+                        }
+                    } else {
+                        success = chatService.topFriend(currentUserId,
+                                contactItem.getUser().getUserId());
+                        if (success) {
+                            JOptionPane.showMessageDialog(this, "已置顶");
+                        }
+                    }
+                    if (success) {
+                        List<User> updatedFriends = chatService.getFriendList(currentUserId);
+                        updateContacts(updatedFriends);
+                    }
+                });
                 listPanel.add(item);
             }
         }

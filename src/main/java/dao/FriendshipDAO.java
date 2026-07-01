@@ -18,24 +18,16 @@ public class FriendshipDAO {
         String sql = "SELECT u.* FROM users u " +
                 "INNER JOIN friendships f ON f.friend_id = u.user_id " +
                 "WHERE f.user_id = ? AND f.status = 'accepted' " +
-                "ORDER BY f.is_top DESC, f.top_time DESC";
-        Connection conn = null;
-        PreparedStatement pstmt = null;
-        ResultSet rs = null;
-
-        try {
-            conn = DBConnection.getConnection();
-            pstmt = conn.prepareStatement(sql);
-            pstmt.setInt(1, userId);   // 只用一个参数
-            rs = pstmt.executeQuery();
-
+                "ORDER BY f.is_top DESC, f.top_time DESC";   // ★ 置顶的排在前面
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, userId);
+            ResultSet rs = pstmt.executeQuery();
             while (rs.next()) {
                 friends.add(extractUser(rs));
             }
         } catch (SQLException e) {
             e.printStackTrace();
-        } finally {
-            DBConnection.closeAll(conn, pstmt, rs);
         }
         return friends;
     }
@@ -231,115 +223,7 @@ public class FriendshipDAO {
         return false;
     }
 
-    /**
-     * 获取好友请求列表
-     */
-    public List<FriendRequest> getFriendRequests(int userId) {
-        List<FriendRequest> requests = new ArrayList<>();
-        String sql = "SELECT fr.*, u.username as from_username FROM friend_requests fr " +
-                "INNER JOIN users u ON fr.from_user_id = u.user_id " +
-                "WHERE fr.to_user_id = ? AND fr.status = 'pending' " +
-                "ORDER BY fr.created_at DESC";
-        Connection conn = null;
-        PreparedStatement pstmt = null;
-        ResultSet rs = null;
-
-        try {
-            conn = DBConnection.getConnection();
-            pstmt = conn.prepareStatement(sql);
-            pstmt.setInt(1, userId);
-            rs = pstmt.executeQuery();
-
-            while (rs.next()) {
-                FriendRequest request = new FriendRequest();
-                request.setRequestId(rs.getInt("request_id"));
-                request.setFromUserId(rs.getInt("from_user_id"));
-                request.setFromUsername(rs.getString("from_username"));
-                request.setToUserId(rs.getInt("to_user_id"));
-                request.setStatus(rs.getString("status"));
-                request.setMessage(rs.getString("message"));
-                requests.add(request);
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        } finally {
-            DBConnection.closeAll(conn, pstmt, rs);
-        }
-        return requests;
-    }
-
-    /**
-     * 接受好友请求
-     */
-    public boolean acceptFriendRequest(int requestId, int fromUserId, int toUserId) {
-        String sql1 = "UPDATE friend_requests SET status = 'accepted' WHERE request_id = ?";
-        String sql2 = "INSERT INTO friendships (user_id, friend_id, status) " +
-                "VALUES (?, ?, 'accepted'), (?, ?, 'accepted')";
-        Connection conn = null;
-        PreparedStatement pstmt1 = null;
-        PreparedStatement pstmt2 = null;
-
-        try {
-            conn = DBConnection.getConnection();
-            conn.setAutoCommit(false);
-
-            pstmt1 = conn.prepareStatement(sql1);
-            pstmt1.setInt(1, requestId);
-            pstmt1.executeUpdate();
-
-            pstmt2 = conn.prepareStatement(sql2);
-            pstmt2.setInt(1, fromUserId);
-            pstmt2.setInt(2, toUserId);
-            pstmt2.setInt(3, toUserId);
-            pstmt2.setInt(4, fromUserId);
-            pstmt2.executeUpdate();
-
-            conn.commit();
-            return true;
-        } catch (SQLException e) {
-            try {
-                conn.rollback();
-            } catch (SQLException e1) {
-                e1.printStackTrace();
-            }
-            e.printStackTrace();
-        } finally {
-            try {
-                if (conn != null) {
-                    conn.setAutoCommit(true);
-                }
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
-            DBConnection.closeStatement(pstmt1);
-            DBConnection.closeStatement(pstmt2);
-            DBConnection.closeConnection(conn);
-        }
-        return false;
-    }
-
-    /**
-     * 拒绝好友请求
-     */
-    public boolean rejectFriendRequest(int requestId) {
-        String sql = "UPDATE friend_requests SET status = 'rejected' WHERE request_id = ?";
-        Connection conn = null;
-        PreparedStatement pstmt = null;
-
-        try {
-            conn = DBConnection.getConnection();
-            pstmt = conn.prepareStatement(sql);
-            pstmt.setInt(1, requestId);
-            return pstmt.executeUpdate() > 0;
-        } catch (SQLException e) {
-            e.printStackTrace();
-        } finally {
-            DBConnection.closeStatement(pstmt);
-            DBConnection.closeConnection(conn);
-        }
-        return false;
-    }
-
+    //将数据库的返回转化为实体对象
     private User extractUser(ResultSet rs) throws SQLException {
         User user = new User();
         user.setUserId(rs.getInt("user_id"));

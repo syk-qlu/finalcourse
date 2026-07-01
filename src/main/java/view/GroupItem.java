@@ -66,11 +66,11 @@ public class GroupItem extends JPanel {
         add(groupNameLabel);
 
         // 成员数量
-        memberCountLabel = new JLabel(group.getMemberCount() + " 人");
+        /*memberCountLabel = new JLabel(group.getMemberCount() + " 人");
         memberCountLabel.setFont(new Font("微软雅黑", Font.PLAIN, 11));
         memberCountLabel.setForeground(new Color(120, 120, 120));
         memberCountLabel.setBounds(60, 30, 170, 20);
-        add(memberCountLabel);
+        add(memberCountLabel);*/
     }
 
     private void addMouseListener() {

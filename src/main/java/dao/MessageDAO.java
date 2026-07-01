@@ -203,9 +203,6 @@ public class MessageDAO {
 
     /**
      * 找到两个用户之间的最后一条消息内容
-     * @param user1
-     * @param user2
-     * @return
      */
     public String getLastMessageContent(int user1, int user2) {
         String sql = "SELECT content FROM messages WHERE (sender_id=? AND receiver_id=?) OR (sender_id=? AND receiver_id=?) ORDER BY created_at DESC LIMIT 1";
@@ -219,7 +216,7 @@ public class MessageDAO {
         return "";
     }
     /**
-     * 保存群文件消息（支持指定消息类型）
+     * 保存群文件消息
      */
     public boolean saveGroupFileMessage(int groupId, int senderId, String content, String messageType) {
         String sql = "INSERT INTO group_messages (group_id, sender_id, content, message_type, created_at) " +

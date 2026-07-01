@@ -63,28 +63,6 @@ public class GroupDAO {
         return false;
     }
 
-    /**
-     * 删除群成员
-     */
-    public boolean removeGroupMember(int groupId, int userId) {
-        String sql = "DELETE FROM group_members WHERE group_id = ? AND user_id = ?";
-        Connection conn = null;
-        PreparedStatement pstmt = null;
-
-        try {
-            conn = DBConnection.getConnection();
-            pstmt = conn.prepareStatement(sql);
-            pstmt.setInt(1, groupId);
-            pstmt.setInt(2, userId);
-            return pstmt.executeUpdate() > 0;
-        } catch (SQLException e) {
-            e.printStackTrace();
-        } finally {
-            DBConnection.closeStatement(pstmt);
-            DBConnection.closeConnection(conn);
-        }
-        return false;
-    }
 
     /**
      * 获取用户加入的所有群组

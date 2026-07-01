@@ -129,26 +129,6 @@ public class ChatService {
         return friendshipDAO.sendFriendRequest(fromUserId, toUserId, message);
     }
 
-    /**
-     * 获取好友请求列表
-     */
-    public List<FriendRequest> getFriendRequests(int userId) {
-        return friendshipDAO.getFriendRequests(userId);
-    }
-
-    /**
-     * 接受好友请求
-     */
-    public boolean acceptFriendRequest(int requestId, int fromUserId, int toUserId) {
-        return friendshipDAO.acceptFriendRequest(requestId, fromUserId, toUserId);
-    }
-
-    /**
-     * 拒绝好友请求
-     */
-    public boolean rejectFriendRequest(int requestId) {
-        return friendshipDAO.rejectFriendRequest(requestId);
-    }
 
     // ========== 群组管理 ==========
 
@@ -197,12 +177,6 @@ public class ChatService {
         return groupDAO.addGroupMember(groupId, userId, role);
     }
 
-    /**
-     * 删除群成员
-     */
-    public boolean removeGroupMember(int groupId, int userId) {
-        return groupDAO.removeGroupMember(groupId, userId);
-    }
 
     /**
      * 检查用户是否在群组中

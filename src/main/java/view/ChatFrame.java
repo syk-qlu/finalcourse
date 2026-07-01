@@ -301,10 +301,10 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
         bottomPanel.add(inputRow, BorderLayout.CENTER);
         chat.add(bottomPanel, BorderLayout.SOUTH);
 
-        // ========== 消息显示区（CENTER）—— 自动填满剩余空间 ==========
+        //消息显示区
         messageDisplayPanel = new JPanel();
         messageDisplayPanel.setLayout(new BoxLayout(messageDisplayPanel, BoxLayout.Y_AXIS));
-        messageDisplayPanel.setBackground(new Color(245, 245, 245));
+        messageDisplayPanel.setBackground(new Color(240, 240, 240));
         messageDisplayPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         chatScrollPane = new JScrollPane(messageDisplayPanel);
@@ -334,7 +334,7 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
         return btn;
     }
 
-    // ------------------ 数据加载 ------------------
+    //数据加载
     protected void loadData() {
         try {
             contacts.clear();
@@ -366,6 +366,7 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
         currentChatUser = user;
         currentGroup = null;
         chatTitleLabel.setText(user.getUsername());
+        // 状态显示
         if ("online".equals(user.getStatus())) {
             chatStatusLabel.setText("在线 ●");
             chatStatusLabel.setForeground(new Color(52, 211, 153));
@@ -373,9 +374,10 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
             chatStatusLabel.setText("离线");
             chatStatusLabel.setForeground(new Color(180, 180, 180));
         }
-        // 清除该好友未读
+        // 清除未读并刷新红点（不必重新查询数据库，只需更新未读数）
         unreadCountMap.put(user.getUserId(), 0);
-        contactListPane.updateContacts(contacts); // 刷新红点
+        contactListPane.updateUnreadCount(user.getUserId(), 0);   // 只更新单个 item 的红点
+        // 加载聊天记录
         displayMessages();
         scrollToBottom();
     }
@@ -595,7 +597,7 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
         contactListPane.updateUnreadCount(userId, 0);
     }
 
-    // ------------------ 服务器消息回调 ------------------
+    //服务器消息回调
     @Override
     public void onMessageReceived(ChatMessage message) {
         SwingUtilities.invokeLater(() -> {
