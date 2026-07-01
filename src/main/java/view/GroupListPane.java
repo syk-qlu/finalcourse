@@ -15,6 +15,7 @@ public class GroupListPane extends JPanel {
     private ChatService chatService;
     private int userId;
     private ChatFrame chatFrame;
+    private int selectedGroupId = -1;
 
     public GroupListPane(List<Group> groups, Consumer<Group> callback, ChatService chatService, int userId, ChatFrame frame) {
         this.groups = groups;
@@ -53,13 +54,33 @@ public class GroupListPane extends JPanel {
         listPanel.removeAll();
         for (Group g : groups) {
             GroupItem item = new GroupItem(g, this::selectGroup);
+            if (g.getGroupId() == selectedGroupId) {
+                item.setSelected(true);
+            }
             listPanel.add(item);
         }
         listPanel.revalidate();
         listPanel.repaint();
     }
 
-    private void selectGroup(Group g) {
+    public void selectGroup(Group g) {
+        selectedGroupId = g.getGroupId();
+        // 取消所有选中
+        for (Component c : listPanel.getComponents()) {
+            if (c instanceof GroupItem) {
+                ((GroupItem) c).setSelected(false);
+            }
+        }
+        // 设置当前选中
+        for (Component c : listPanel.getComponents()) {
+            if (c instanceof GroupItem) {
+                GroupItem item = (GroupItem) c;
+                if (item.getGroup().getGroupId() == selectedGroupId) {
+                    item.setSelected(true);
+                    break;
+                }
+            }
+        }
         if (onSelectCallback != null) onSelectCallback.accept(g);
     }
 

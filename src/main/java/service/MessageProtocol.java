@@ -10,23 +10,23 @@ import java.io.*;
 public class MessageProtocol {
 
     /**
-     * 序列化消息
+     * 序列化消息(对象->字节数组)
      */
     public static byte[] serialize(ChatMessage message) throws IOException {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ObjectOutputStream oos = new ObjectOutputStream(baos);
-        oos.writeObject(message);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();//输出流
+        ObjectOutputStream oos = new ObjectOutputStream(baos);//对象序列化输出流
+        oos.writeObject(message);//消息对象写入序列化流
         oos.close();
         return baos.toByteArray();
     }
 
     /**
-     * 反序列化消息
+     * 反序列化消息(字节数组—>对象)
      */
     public static ChatMessage deserialize(byte[] data) throws IOException, ClassNotFoundException {
-        ByteArrayInputStream bais = new ByteArrayInputStream(data);
-        ObjectInputStream ois = new ObjectInputStream(bais);
-        ChatMessage message = (ChatMessage) ois.readObject();
+        ByteArrayInputStream bais = new ByteArrayInputStream(data);//输入流
+        ObjectInputStream ois = new ObjectInputStream(bais);//对象序列化输入流
+        ChatMessage message = (ChatMessage) ois.readObject();//消息对象从序列化流中读取
         ois.close();
         return message;
     }

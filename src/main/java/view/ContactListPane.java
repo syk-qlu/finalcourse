@@ -16,6 +16,7 @@ public class ContactListPane extends JPanel {
     private int currentUserId;
     private ChatFrame chatFrame;
     private JLabel emptyLabel;
+    private int selectedUserId = -1;
     public ContactListPane(List<User> contacts, Consumer<User> callback,
                            ChatService chatService, int userId, ChatFrame frame) {
         this.contacts = contacts;
@@ -65,7 +66,11 @@ public class ContactListPane extends JPanel {
             emptyLabel.setVisible(false);
             for (User user : contacts) {
                 ContactItem item = new ContactItem(user, this::selectItem);
-                // 设置预览、未读等...
+                // 恢复之前选中的用户
+                if (user.getUserId() == selectedUserId) {
+                    item.setSelected(true);
+                }
+                // 设置预览、未读等（原有代码）
                 listPanel.add(item);
             }
         }
@@ -85,10 +90,22 @@ public class ContactListPane extends JPanel {
         }
     }
 
-    private void selectItem(User user) {
-        for (Component c : listPanel.getComponents()) {
-            if (c instanceof ContactItem) {
-                ((ContactItem) c).setSelected(false);
+    public void selectItem(User user) {
+        selectedUserId = user.getUserId();
+        // 取消所有选中
+        for (Component comp : listPanel.getComponents()) {
+            if (comp instanceof ContactItem) {
+                ((ContactItem) comp).setSelected(false);
+            }
+        }
+        // 设置当前选中
+        for (Component comp : listPanel.getComponents()) {
+            if (comp instanceof ContactItem) {
+                ContactItem item = (ContactItem) comp;
+                if (item.getUser().getUserId() == selectedUserId) {
+                    item.setSelected(true);
+                    break;
+                }
             }
         }
         if (onSelectCallback != null) onSelectCallback.accept(user);

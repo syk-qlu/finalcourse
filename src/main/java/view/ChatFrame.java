@@ -204,10 +204,10 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
         nav.add(addGroupBtn);
 
         btnY += 40;
-        JButton settingBtn = createNavButton("设置");
-        settingBtn.setBounds(5, btnY, 50, 30);
-        settingBtn.addActionListener(e -> JOptionPane.showMessageDialog(this, "设置功能开发中"));
-        nav.add(settingBtn);
+        JButton profileBtn = createNavButton("主页");
+        profileBtn.setBounds(5, btnY, 50, 30);
+        profileBtn.addActionListener(e -> showProfileDialog());
+        nav.add(profileBtn);
 
         return nav;
     }
@@ -228,16 +228,16 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
         });
         return btn;
     }
-
+    //创建右侧聊天区域，包含消息显示区域，消息输入区域
     private JPanel createChatPanel() {
-        JPanel chat = new JPanel(null);
-        int chatWidth = frameWidth - NAV_WIDTH - LIST_WIDTH;
-        chat.setPreferredSize(new Dimension(chatWidth, frameHeight));
+        // 右侧聊天总面板，使用 BorderLayout
+        JPanel chat = new JPanel(new BorderLayout());
+        chat.setPreferredSize(new Dimension(frameWidth - NAV_WIDTH - LIST_WIDTH, frameHeight));
         chat.setBackground(Constants.COLOR_CHAT_BG);
 
-        // 标题栏
+        //标题栏
         JPanel header = new JPanel(new BorderLayout());
-        header.setBounds(0, 0, chatWidth, CHAT_HEADER_HEIGHT);
+        header.setPreferredSize(new Dimension(1, CHAT_HEADER_HEIGHT));
         header.setBackground(Constants.COLOR_PRIMARY);
         header.setBorder(BorderFactory.createEmptyBorder(0, 15, 0, 15));
 
@@ -250,59 +250,70 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
         chatStatusLabel.setFont(new Font("微软雅黑", Font.PLAIN, 12));
         chatStatusLabel.setForeground(new Color(220, 240, 255));
         header.add(chatStatusLabel, BorderLayout.EAST);
-        chat.add(header);
+        chat.add(header, BorderLayout.NORTH);
 
-        // 消息显示区
-        messageDisplayPanel = new JPanel();
-        messageDisplayPanel.setLayout(new BoxLayout(messageDisplayPanel, BoxLayout.Y_AXIS));
-        messageDisplayPanel.setBackground(new Color(245, 245, 245));
-        messageDisplayPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        //底部区域—— 工具栏 + 输入框 + 发送按钮
+        JPanel bottomPanel = new JPanel(new BorderLayout());
+        bottomPanel.setBackground(Constants.COLOR_CHAT_BG);
 
-        chatScrollPane = new JScrollPane(messageDisplayPanel);
-        chatScrollPane.setBounds(0, CHAT_HEADER_HEIGHT, chatWidth,
-                frameHeight - CHAT_HEADER_HEIGHT - TOOLBAR_HEIGHT - INPUT_HEIGHT);
-        chatScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
-        chatScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        chatScrollPane.getVerticalScrollBar().setUnitIncrement(20);
-        chatScrollPane.setBorder(BorderFactory.createEmptyBorder());
-        chatScrollPane.getVerticalScrollBar().setUI(new ScrollBarUI());
-        chat.add(chatScrollPane);
-
-        // 工具栏
-        int toolbarY = frameHeight - TOOLBAR_HEIGHT - INPUT_HEIGHT;
+        //工具栏
         JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
-        toolbar.setBounds(0, toolbarY, chatWidth, TOOLBAR_HEIGHT);
+        toolbar.setPreferredSize(new Dimension(1, TOOLBAR_HEIGHT));
         toolbar.setBackground(new Color(245, 245, 245));
         toolbar.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(210, 210, 210)));
 
         addToolButton(toolbar, "表情", e -> {});
         addToolButton(toolbar, "截图", e -> {});
-        JButton imgBtn = addToolButton(toolbar, "图片", e -> sendImage());
-        JButton fileBtn = addToolButton(toolbar, "文件", e -> sendFile());
-        chat.add(toolbar);
+        addToolButton(toolbar, "图片", e -> sendImage());
+        addToolButton(toolbar, "文件", e -> sendFile());
+        bottomPanel.add(toolbar, BorderLayout.NORTH);
 
-        // 输入区域
+        //输入框 + 发送按钮
+        JPanel inputRow = new JPanel(new BorderLayout(0, 0));
+        inputRow.setBackground(Color.WHITE);
+
         inputArea = new JTextArea();
         inputArea.setFont(new Font("微软雅黑", Font.PLAIN, 14));
         inputArea.setLineWrap(true);
         inputArea.setWrapStyleWord(true);
         inputArea.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
         JScrollPane inputScroll = new JScrollPane(inputArea);
-        inputScroll.setBounds(0, frameHeight - INPUT_HEIGHT, chatWidth - SEND_BTN_WIDTH, INPUT_HEIGHT);
         inputScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        chat.add(inputScroll);
+        inputRow.add(inputScroll, BorderLayout.CENTER);   // 输入框占满中央
 
-        // 发送按钮
+        // 发送按钮（EAST of inputRow）—— 右下角，距边界 5px
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 5));
+        btnPanel.setBackground(Color.WHITE);
+        btnPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 5, 5));  // 下、右各5px
+
         sendBtn = new JButton("发送");
         sendBtn.setFont(new Font("微软雅黑", Font.BOLD, 14));
-        sendBtn.setBounds(chatWidth - SEND_BTN_WIDTH, frameHeight - INPUT_HEIGHT, SEND_BTN_WIDTH, INPUT_HEIGHT);
+        sendBtn.setPreferredSize(new Dimension(75, 32));
         sendBtn.setBackground(Constants.COLOR_PRIMARY);
         sendBtn.setForeground(Color.WHITE);
         sendBtn.setFocusPainted(false);
         sendBtn.setBorder(BorderFactory.createEmptyBorder());
         sendBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         sendBtn.addActionListener(e -> sendMessage());
-        chat.add(sendBtn);
+        btnPanel.add(sendBtn);
+        inputRow.add(btnPanel, BorderLayout.EAST);
+
+        bottomPanel.add(inputRow, BorderLayout.CENTER);
+        chat.add(bottomPanel, BorderLayout.SOUTH);
+
+        // ========== 消息显示区（CENTER）—— 自动填满剩余空间 ==========
+        messageDisplayPanel = new JPanel();
+        messageDisplayPanel.setLayout(new BoxLayout(messageDisplayPanel, BoxLayout.Y_AXIS));
+        messageDisplayPanel.setBackground(new Color(245, 245, 245));
+        messageDisplayPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        chatScrollPane = new JScrollPane(messageDisplayPanel);
+        chatScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        chatScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        chatScrollPane.getVerticalScrollBar().setUnitIncrement(20);
+        chatScrollPane.setBorder(BorderFactory.createEmptyBorder());
+        chatScrollPane.getVerticalScrollBar().setUI(new ScrollBarUI());
+        chat.add(chatScrollPane, BorderLayout.CENTER);
 
 
         return chat;
@@ -638,6 +649,119 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
         } else if (currentGroup != null) {
             displayGroupMessages();
         }
+    }
+    //显示个人主页
+    private void showProfileDialog() {
+        // 模态对话框
+        JDialog profileDialog = new JDialog(this, "个人主页", true);
+        profileDialog.setSize(300, 350);
+        profileDialog.setLocationRelativeTo(this);
+        profileDialog.setLayout(new BorderLayout());
+
+        //顶部面板（头像+名称+ID）
+        JPanel topPanel = new JPanel();
+        topPanel.setLayout(new BoxLayout(topPanel, BoxLayout.Y_AXIS));
+        topPanel.setBorder(BorderFactory.createEmptyBorder(15, 10, 10, 10));
+        topPanel.setBackground(Color.WHITE);
+
+        // 头像（居中）
+        JLabel avatarLabel = new JLabel(new ImageIcon(
+                currentUser.getHeadIcon().getImage().getScaledInstance(80, 80, Image.SCALE_SMOOTH)));
+        avatarLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        topPanel.add(avatarLabel);
+        topPanel.add(Box.createVerticalStrut(10));
+
+        // 用户名
+        JLabel nameLabel = new JLabel("用户名: " + currentUser.getUsername());
+        nameLabel.setFont(new Font("微软雅黑", Font.BOLD, 14));
+        nameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        topPanel.add(nameLabel);
+        topPanel.add(Box.createVerticalStrut(5));
+
+        // ID
+        JLabel idLabel = new JLabel("ID: " + currentUser.getUserId());
+        idLabel.setFont(new Font("微软雅黑", Font.PLAIN, 12));
+        idLabel.setForeground(Color.GRAY);
+        idLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        topPanel.add(idLabel);
+        topPanel.add(Box.createVerticalStrut(15));
+
+        profileDialog.add(topPanel, BorderLayout.NORTH);
+
+        //按钮面板
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.setLayout(new GridLayout(2, 1, 0, 8));
+        buttonPanel.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
+        buttonPanel.setBackground(Color.WHITE);
+
+        // 更改用户名按钮
+        JButton changeNameBtn = new JButton("更改名称");
+        changeNameBtn.setFont(new Font("微软雅黑", Font.PLAIN, 13));
+        changeNameBtn.setBackground(new Color(79, 183, 245));
+        changeNameBtn.setForeground(Color.WHITE);
+        changeNameBtn.setFocusPainted(false);
+        changeNameBtn.addActionListener(e -> {
+            String newName = JOptionPane.showInputDialog(profileDialog, "请输入新用户名:", currentUser.getUsername());
+            if (newName != null && !newName.trim().isEmpty()) {
+                newName = newName.trim();
+                if (newName.equals(currentUser.getUsername())) {
+                    JOptionPane.showMessageDialog(profileDialog, "与当前用户名相同");
+                    return;
+                }
+                if (chatService.usernameExists(newName)) {
+                    JOptionPane.showMessageDialog(profileDialog, "用户名已存在");
+                    return;
+                }
+                boolean ok = chatService.updateUsername(currentUser.getUserId(), newName);
+                if (ok) {
+                    currentUser.setUsername(newName);
+                    nameLabel.setText("用户名: " + newName);
+                    setTitle("QChat - " + newName);
+                    // 更新导航栏头像区域的 tooltip 等（可以简单重绘，但需获取引用，这里可调用 revalidate）
+                    JOptionPane.showMessageDialog(profileDialog, "用户名修改成功");
+                } else {
+                    JOptionPane.showMessageDialog(profileDialog, "修改失败");
+                }
+            }
+        });
+        buttonPanel.add(changeNameBtn);
+
+        // 更改密码按钮
+        JButton changePwdBtn = new JButton("更改密码");
+        changePwdBtn.setFont(new Font("微软雅黑", Font.PLAIN, 13));
+        changePwdBtn.setBackground(new Color(79, 183, 245));
+        changePwdBtn.setForeground(Color.WHITE);
+        changePwdBtn.setFocusPainted(false);
+        changePwdBtn.addActionListener(e -> {
+            JPasswordField pwdField = new JPasswordField();
+            int option = JOptionPane.showConfirmDialog(profileDialog, pwdField, "请输入新密码:", JOptionPane.OK_CANCEL_OPTION);
+            if (option == JOptionPane.OK_OPTION) {
+                String newPwd = new String(pwdField.getPassword());
+                if (newPwd.isEmpty()) {
+                    JOptionPane.showMessageDialog(profileDialog, "密码不能为空");
+                    return;
+                }
+                boolean ok = chatService.updatePassword(currentUser.getUserId(), newPwd);
+                if (ok) {
+                    JOptionPane.showMessageDialog(profileDialog, "密码修改成功，下次登录生效");
+                } else {
+                    JOptionPane.showMessageDialog(profileDialog, "修改失败");
+                }
+            }
+        });
+        buttonPanel.add(changePwdBtn);
+
+        profileDialog.add(buttonPanel, BorderLayout.CENTER);
+
+        // 关闭按钮
+        JButton closeBtn = new JButton("关闭");
+        closeBtn.setFont(new Font("微软雅黑", Font.PLAIN, 12));
+        closeBtn.addActionListener(e -> profileDialog.dispose());
+        JPanel closePanel = new JPanel();
+        closePanel.add(closeBtn);
+        profileDialog.add(closePanel, BorderLayout.SOUTH);
+
+        profileDialog.setVisible(true);
     }
 
     // ------------------ 工具方法 ------------------

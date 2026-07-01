@@ -248,4 +248,21 @@ public class ChatService {
     public String getLastMessagePreview(int userId1, int userId2) {
         return messageDAO.getLastMessageContent(userId1, userId2);
     }
+
+    /**
+     * 更新用户名称
+     */
+    public boolean updateUsername(int userId, String newUsername) {
+        return userDAO.updateUsername(userId, newUsername);
+    }
+
+    /**
+     * 更新用户密码
+     */
+    public boolean updatePassword(int userId, String newPassword) {
+        return userDAO.updatePassword(userId, newPassword);
+    }
+    public boolean usernameExists(String username) {
+        return userDAO.usernameExists(username);
+    }
 }
