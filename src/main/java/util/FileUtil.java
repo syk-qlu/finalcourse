@@ -35,15 +35,14 @@ public class FileUtil {
      */
     public static String saveReceivedFile(String fileName, byte[] fileData) throws IOException {
         String uniqueName = UUID.randomUUID().toString() + "_" + fileName;
-        String filePath = DOWNLOAD_DIR + uniqueName;
-
-        File file = new File(filePath);
+        File dir = new File(DOWNLOAD_DIR);
+        dir.mkdirs();
+        File file = new File(dir, uniqueName);
         try (FileOutputStream fos = new FileOutputStream(file)) {
             fos.write(fileData);
             fos.flush();
         }
-
-        return filePath;
+        return file.getAbsolutePath();   // 返回绝对路径
     }
 
     /**

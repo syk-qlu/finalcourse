@@ -218,4 +218,23 @@ public class MessageDAO {
         } catch (SQLException e) { e.printStackTrace(); }
         return "";
     }
+    /**
+     * 保存群文件消息（支持指定消息类型）
+     */
+    public boolean saveGroupFileMessage(int groupId, int senderId, String content, String messageType) {
+        String sql = "INSERT INTO group_messages (group_id, sender_id, content, message_type, created_at) " +
+                "VALUES (?, ?, ?, ?, ?)";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, groupId);
+            pstmt.setInt(2, senderId);
+            pstmt.setString(3, content);          // 文件路径
+            pstmt.setString(4, messageType);      // "file" 或 "image"
+            pstmt.setLong(5, System.currentTimeMillis());
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
 }

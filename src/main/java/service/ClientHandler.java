@@ -165,40 +165,41 @@ public class ClientHandler implements Runnable {
      * 处理文件转移
      */
     private void handleFileTransfer(ChatMessage message) throws IOException {
-        int receiverId = message.getToUserId();
         Integer groupId = message.getGroupId();
+        int fromUserId = message.getFromUserId();
 
-        // 保存文件到本地
+        // 1. 保存文件到本地（绝对路径）
         String filePath = FileUtil.saveReceivedFile(message.getFileName(), message.getFileData());
 
-        // 保存到数据库
-        Message dbMessage = new Message(
-                message.getFromUserId(),
-                receiverId,
-                filePath
-        );
-        dbMessage.setMessageType("file");
-        dbMessage.setContent(message.getFileName());
-        messageDAO.saveMessage(dbMessage);
+        // 2. 根据是否为群聊，存入不同的数据库表
+        if (groupId != null) {
+            // === 群聊文件：存入 group_messages 表 ===
+            messageDAO.saveGroupFileMessage(groupId, fromUserId, filePath, "file");
+        } else {
+            // === 私聊文件：存入 messages 表 ===
+            Message dbMessage = new Message(fromUserId, message.getToUserId(), filePath);
+            dbMessage.setMessageType("file");
+            messageDAO.saveMessage(dbMessage);
+            message.setMessageId(dbMessage.getMessageId());
+        }
 
-        // 转发文件消息
-        message.setMessageId(dbMessage.getMessageId());
+        // 3. 设置消息体中的文件路径（用于客户端显示）
         message.setContent(filePath);
         message.putExtra("fileName", message.getFileName());
         message.putExtra("fileSize", message.getFileSize());
 
         if (groupId != null) {
-            // 群组文件
+            // 群聊转发：获取所有群成员（注意包括发送者自己，用于回显）
             List<User> members = groupDAO.getGroupMembers(groupId);
             for (User member : members) {
-                if (member.getUserId() != message.getFromUserId()) {
-                    message.setToUserId(member.getUserId());
-                    server.forwardMessage(message);
-                }
+                message.setToUserId(member.getUserId());
+                server.forwardMessage(message);
             }
         } else {
-            // 私聊文件
+            // 私聊转发
             server.forwardMessage(message);
+            // 回显给发送方
+            try { sendMessage(message); } catch (IOException ignored) {}
         }
 
         System.out.println("文件转移: " + username + " 发送了文件: " + message.getFileName());
