@@ -14,7 +14,11 @@ public class GroupItem extends JPanel {
     private Group group;
     private boolean isSelected = false;
     private Consumer<Group> onSelectCallback;
+    private Consumer<MouseEvent> onRightClick;
 
+    public void setOnRightClick(Consumer<MouseEvent> callback) {
+        this.onRightClick = callback;
+    }
     public GroupItem(Group group, Consumer<Group> onSelectCallback) {
         this.group = group;
         this.onSelectCallback = onSelectCallback;
@@ -78,16 +82,18 @@ public class GroupItem extends JPanel {
                     if (onSelectCallback != null) {
                         onSelectCallback.accept(group);
                     }
+                } else if (SwingUtilities.isRightMouseButton(e)) {
+                    if (onRightClick != null) {
+                        onRightClick.accept(e);
+                    }
                 }
             }
-
             @Override
             public void mouseEntered(MouseEvent e) {
                 if (!isSelected) {
                     setBackground(new Color(227, 227, 227));
                 }
             }
-
             @Override
             public void mouseExited(MouseEvent e) {
                 if (!isSelected) {

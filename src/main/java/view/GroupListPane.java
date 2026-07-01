@@ -7,6 +7,9 @@ import javax.swing.*;
 import java.awt.*;
 import java.util.List;
 import java.util.function.Consumer;
+import java.awt.Toolkit;
+import java.awt.datatransfer.StringSelection;
+import model.User;
 
 public class GroupListPane extends JPanel {
     private JPanel listPanel;
@@ -57,6 +60,44 @@ public class GroupListPane extends JPanel {
             if (g.getGroupId() == selectedGroupId) {
                 item.setSelected(true);
             }
+
+            // ---- 右键菜单 ----
+            item.setOnRightClick(e -> {
+                JPopupMenu popup = new JPopupMenu();
+
+                // 查看群成员
+                JMenuItem membersItem = new JMenuItem("查看群成员");
+                membersItem.addActionListener(ev -> {
+                    List<User> members = chatService.getGroupMembers(g.getGroupId());
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("群名称: ").append(g.getGroupName()).append("\n");
+                    sb.append("成员数量: ").append(members.size()).append("\n\n");
+                    for (User u : members) {
+                        sb.append("· ").append(u.getUsername())
+                                .append(" (ID: ").append(u.getUserId()).append(")\n");
+                    }
+                    JTextArea textArea = new JTextArea(sb.toString());
+                    textArea.setFont(new Font("微软雅黑", Font.PLAIN, 13));
+                    textArea.setEditable(false);
+                    JScrollPane scroll = new JScrollPane(textArea);
+                    scroll.setPreferredSize(new Dimension(280, 220));
+                    JOptionPane.showMessageDialog(chatFrame, scroll,
+                            "群成员列表", JOptionPane.INFORMATION_MESSAGE);
+                });
+                popup.add(membersItem);
+
+                // 查看群 ID
+                JMenuItem idItem = new JMenuItem("群ID: " + g.getGroupId());
+                idItem.addActionListener(ev -> {
+                    StringSelection selection = new StringSelection(String.valueOf(g.getGroupId()));
+                    Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, null);
+                    JOptionPane.showMessageDialog(chatFrame, "群ID已复制到剪贴板");
+                });
+                popup.add(idItem);
+
+                popup.show(item, e.getX(), e.getY());
+            });
+
             listPanel.add(item);
         }
         listPanel.revalidate();
