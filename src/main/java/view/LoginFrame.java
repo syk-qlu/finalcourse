@@ -1,6 +1,7 @@
 package view;
 
 import model.User;
+import service.ChatServer;
 import service.UserService;
 
 import javax.swing.*;
@@ -133,6 +134,18 @@ public class LoginFrame extends JFrame {
     }
 
     public static void main(String[] args) {
+        // 在后台线程启动服务端（监听9999端口）
+        new Thread(() -> {
+            ChatServer server = new ChatServer();
+            server.start();   // 阻塞，持续接受客户端连接
+        }, "ChatServer-Thread").start();
+        // 等待服务端启动
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        // 启动登录界面（客户端）
         SwingUtilities.invokeLater(() -> new LoginFrame());
     }
 }

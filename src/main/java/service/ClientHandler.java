@@ -168,22 +168,22 @@ public class ClientHandler implements Runnable {
         Integer groupId = message.getGroupId();
         int fromUserId = message.getFromUserId();
 
-        // 1. 保存文件到本地（绝对路径）
+        // 保存文件到本地（绝对路径）
         String filePath = FileUtil.saveReceivedFile(message.getFileName(), message.getFileData());
 
-        // 2. 根据是否为群聊，存入不同的数据库表
+        // 根据是否为群聊，存入不同的数据库表
         if (groupId != null) {
-            // === 群聊文件：存入 group_messages 表 ===
+            //群聊文件：存入 group_messages 表
             messageDAO.saveGroupFileMessage(groupId, fromUserId, filePath, "file");
         } else {
-            // === 私聊文件：存入 messages 表 ===
+            //私聊文件：存入 messages 表
             Message dbMessage = new Message(fromUserId, message.getToUserId(), filePath);
             dbMessage.setMessageType("file");
             messageDAO.saveMessage(dbMessage);
             message.setMessageId(dbMessage.getMessageId());
         }
 
-        // 3. 设置消息体中的文件路径（用于客户端显示）
+        // 设置消息体中的文件路径（用于客户端显示）
         message.setContent(filePath);
         message.putExtra("fileName", message.getFileName());
         message.putExtra("fileSize", message.getFileSize());
@@ -220,7 +220,7 @@ public class ClientHandler implements Runnable {
         if (receiverId > 0) {
             server.forwardMessage(message);
         }
-        // ★ 回显给发送者，让发送者也更新界面
+        //回显给发送者，让发送者也更新界面
         try {
             sendMessage(message);  // 将撤回消息发给发送者自己
         } catch (IOException ignored) {}
