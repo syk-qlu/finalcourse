@@ -30,7 +30,7 @@ public class DBConnection {
             e.printStackTrace();
         }
     }
-//
+
     public static Connection getConnection() throws SQLException {
         if (URL == null || USER == null || PASSWORD == null) {
             throw new SQLException("数据库配置文件未正确加载");
