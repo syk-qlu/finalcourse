@@ -9,7 +9,7 @@ public class DBConnection {
     private static String URL;
     private static String USER;
     private static String PASSWORD;
-//
+
     static {
         try {
             Properties props = new Properties();
