@@ -37,7 +37,7 @@ public class DBConnection {
         }
         return DriverManager.getConnection(URL, USER, PASSWORD);
     }
-
+//
     public static void closeConnection(Connection conn) {
         if (conn != null) {
             try {
