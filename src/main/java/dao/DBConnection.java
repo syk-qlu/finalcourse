@@ -57,7 +57,7 @@ public class DBConnection {
             }
         }
     }
-//
+
     public static void closeResultSet(ResultSet rs) {
         if (rs != null) {
             try {
@@ -73,4 +73,4 @@ public class DBConnection {
         closeStatement(stmt);
         closeConnection(conn);
     }
-}
+}//
