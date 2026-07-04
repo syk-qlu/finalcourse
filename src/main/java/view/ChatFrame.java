@@ -196,7 +196,7 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
         addFriendBtn.setBounds(5, btnY, 50, 30);
         addFriendBtn.addActionListener(e -> showAddFriendDialog());
         nav.add(addFriendBtn);
-        //
+
         btnY += 40;
         JButton addGroupBtn = createNavButton("+群聊");
         addGroupBtn.setBounds(5, btnY, 50, 30);
