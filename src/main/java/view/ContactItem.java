@@ -17,7 +17,7 @@ public class ContactItem extends JPanel {
     private Consumer<ContactItem> onDeleteCallback, onTopCallback;
     private int unreadCount = 0;
     private String lastMessage;
-
+    //联系人条目
     public ContactItem(User user, Consumer<User> onSelectCallback) {
         this.user = user;
         this.onSelectCallback = onSelectCallback;
@@ -30,7 +30,7 @@ public class ContactItem extends JPanel {
         initComponents();
         addMouseListeners();
     }
-
+    //初始化组件
     private void initComponents() {
         headLabel = new JLabel(new ImageIcon(user.getHeadIcon().getImage().getScaledInstance(44, 44, Image.SCALE_SMOOTH)));
         headLabel.setBounds(8, 10, 44, 44);

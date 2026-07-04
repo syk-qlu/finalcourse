@@ -361,7 +361,7 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
         }
     }
 
-    // ------------------ 切换聊天 ------------------
+    // 切换聊天
     private void switchChat(User user) {
         currentChatUser = user;
         currentGroup = null;
@@ -480,7 +480,7 @@ public class ChatFrame extends JFrame implements ChatClient.MessageListener {
         });
     }
 
-    // ------------------ 消息发送 ------------------
+    //消息发送
     private void sendMessage() {
         String text = inputArea.getText().trim();
         if (text.isEmpty()) return;

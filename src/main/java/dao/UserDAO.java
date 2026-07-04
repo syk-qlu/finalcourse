@@ -47,7 +47,7 @@ public class UserDAO {
             rs = pstmt.executeQuery();
 
             if (rs.next()) {
-                return extractUser(rs);
+                return extractUser(rs);//将rs转化为User
             }
         } catch (SQLException e) {
             e.printStackTrace();

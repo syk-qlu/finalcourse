@@ -198,7 +198,7 @@ public class GroupDAO {
         }
         return false;
     }
-
+    //将数据库对应行转化为user对象
     private User extractUser(ResultSet rs) throws SQLException {
         User user = new User();
         user.setUserId(rs.getInt("user_id"));

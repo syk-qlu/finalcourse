@@ -7,7 +7,7 @@ import java.nio.file.Paths;
 import java.util.UUID;
 
 /**
- * 文件工具类 - 处理文件上传、下载等
+ * 文件工具类 处理文件上传、下载等
  */
 public class FileUtil {
     private static final String DOWNLOAD_DIR = "files/downloads/";

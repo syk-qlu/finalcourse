@@ -76,7 +76,7 @@ public class ChatService {
         return messageDAO.recallGroupMessage(messageId, userId);
     }
 
-    // ========== 好友管理 ==========
+    //好友管理
 
     /**
      * 获取好友列表
@@ -130,7 +130,7 @@ public class ChatService {
     }
 
 
-    // ========== 群组管理 ==========
+    //群组管理
 
     /**
      * 创建群组

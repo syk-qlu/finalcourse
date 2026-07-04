@@ -46,7 +46,7 @@ public class ChatBubble extends JPanel {
         if (line.length() > 0) lines.add(line.toString());
         return lines.isEmpty() ? new String[]{""} : lines.toArray(new String[0]);
     }
-
+    //绘制气泡
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
